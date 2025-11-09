@@ -1,0 +1,8 @@
+{
+  "name": "The Agric App",
+  "description": "A dashboard for modern farm management, providing tools for livestock planning, cropping, record keeping, and more, based on a modern UI design.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "prompt": ""
+}
