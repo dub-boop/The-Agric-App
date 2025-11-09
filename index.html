@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>The Agric App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        font-family: 'Inter', sans-serif;
+      }
+      @media print {
+        body * {
+          visibility: hidden !important;
+        }
+        .printable-area, .printable-area *,
+        .printable-task-history, .printable-task-history *,
+        .printable-records-log, .printable-records-log * {
+          visibility: visible !important;
+        }
+        .printable-area, .printable-task-history, .printable-records-log {
+          position: absolute !important;
+          left: 0 !important;
+          top: 0 !important;
+          width: 100% !important;
+          height: auto !important;
+          overflow: visible !important;
+          margin: 0 !important;
+          padding: 1rem !important;
+          font-size: 10pt !important;
+          background: white !important;
+          border: none !important;
+          box-shadow: none !important;
+        }
+        .printable-records-log table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .printable-records-log th,
+        .printable-records-log td {
+            border: 1px solid #ddd;
+            padding: 8px;
+        }
+         .printable-records-log th {
+            padding-top: 12px;
+            padding-bottom: 12px;
+            text-align: left;
+            background-color: #f2f2f2;
+        }
+        .no-print {
+          display: none !important;
+        }
+      }
+    </style>
+
+    <link rel="stylesheet" href="/index.css">
+    <script type="importmap">
+    {
+      "imports": {
+        "react": "https://esm.sh/react@18.2.0",
+        "react-dom": "https://esm.sh/react-dom@18.2.0",
+        "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+        "react/": "https://esm.sh/react@18.2.0/",
+        "react-dom/": "https://esm.sh/react-dom@18.2.0/",
+        "@google/genai": "https://esm.sh/@google/genai@^1.12.0",
+        "html2canvas": "https://esm.sh/html2canvas@1.4.1"
+      }
+    }
+    </script>
+    <script type="module" crossorigin src="/The-Agric-App/assets/index-CK8DNrbY.js"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
