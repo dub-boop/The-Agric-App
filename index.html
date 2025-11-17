@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>The Agric App</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
     <style>
       @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
       html {
@@ -13,6 +14,18 @@
       body {
         font-family: 'Inter', sans-serif;
       }
+      /* Material Icons sizing based on Tailwind CSS classes */
+      .material-icons-outlined {
+        vertical-align: middle;
+      }
+      .h-4, .w-4 { font-size: 1rem !important; line-height: 1rem !important; }
+      .h-5, .w-5 { font-size: 1.25rem !important; line-height: 1.25rem !important; }
+      .h-6, .w-6 { font-size: 1.5rem !important; line-height: 1.5rem !important; }
+      .h-8, .w-8 { font-size: 2rem !important; line-height: 2rem !important; }
+      .h-10, .w-10 { font-size: 2.5rem !important; line-height: 2.5rem !important; }
+      .h-16, .w-16 { font-size: 4rem !important; line-height: 4rem !important; }
+      .h-24, .w-24 { font-size: 6rem !important; line-height: 6rem !important; }
+
       @media print {
         body * {
           visibility: hidden !important;
