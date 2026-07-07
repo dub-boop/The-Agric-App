@@ -1,0 +1,32 @@
+{
+  "collections": {
+    "users": {
+      "schema": {
+        "properties": {
+          "email": { "type": "string" },
+          "selectedCrops": { "type": "array" },
+          "selectedLivestock": { "type": "array" },
+          "pendingDocuments": { "type": "array" },
+          "rejectedDocuments": { "type": "array" },
+          "businessProfile": { "type": "object" },
+          "userProfile": { "type": "object" },
+          "incomeRecords": { "type": "array" },
+          "expenditureRecords": { "type": "array" },
+          "farmLocations": { "type": "array" },
+          "teamMembers": { "type": "array" },
+          "currentUserPlan": { "type": "string" },
+          "healthEvents": { "type": "array" },
+          "animals": { "type": "array" },
+          "cropPlans": { "type": "array" },
+          "livestockTasks": { "type": "array" },
+          "croppingActivities": { "type": "array" },
+          "inputsInventory": { "type": "array" },
+          "toolsEquipment": { "type": "array" },
+          "breedingRecords": { "type": "array" },
+          "activityLog": { "type": "array" },
+          "updatedAt": { "type": "timestamp" }
+        }
+      }
+    }
+  }
+}

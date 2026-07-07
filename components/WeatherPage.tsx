@@ -92,7 +92,7 @@ const getWeatherIcon = (iconCode: string, className?: string) => {
 
 // --- Sub-components ---
 
-const AlertBanner = ({ alert }: { alert: WeatherAlert }) => (
+const AlertBanner = ({ alert }: { alert: WeatherAlert, key?: React.Key }) => (
     <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-md shadow-md" role="alert">
         <div className="flex">
             <div className="py-1"><WarningIcon className="h-6 w-6 text-red-500 mr-4"/></div>

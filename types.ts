@@ -348,7 +348,7 @@ export interface TeamMember {
 export interface ActivityLog {
     id: string;
     userId: string;
-    icon: React.ReactElement<{ className?: string }>;
+    icon: string;
     text: string;
     date: Date;
 }

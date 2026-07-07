@@ -46,7 +46,7 @@ const InfoCard = ({ title, children }: { title: string, children?: React.ReactNo
     </div>
 );
 
-const StatCard = ({ title, value, icon, color }: { title: string, value: string | number, icon: React.ReactNode, color: string }) => (
+const StatCard = ({ title, value, icon, color }: { title: string, value: string | number, icon: React.ReactNode, color: string, key?: React.Key }) => (
     <div className={`p-4 rounded-lg flex items-center space-x-3 ${color}`}>
         <div className="flex-shrink-0">{icon}</div>
         <div>
@@ -425,7 +425,11 @@ const UserProfilePage = ({
                            {userActivity.length > 0 ? (
                                 userActivity.map(log => (
                                     <li key={log.id} className="flex items-center space-x-4">
-                                        <div className="bg-gray-100 p-2 rounded-full">{React.cloneElement(log.icon, { className: 'h-5 w-5 text-gray-500' })}</div>
+                                        <div className="bg-gray-100 p-2 rounded-full">
+                                            <span className="material-icons-outlined h-5 w-5 text-gray-500 flex items-center justify-center">
+                                                {typeof log.icon === 'string' ? log.icon : 'assignment'}
+                                            </span>
+                                        </div>
                                         <div className="flex-grow">
                                             <p className="text-sm text-gray-800">{log.text}</p>
                                             <p className="text-xs text-gray-400">{formatRelativeTime(log.date)}</p>

@@ -557,9 +557,9 @@ export const TEAM_MEMBERS_DATA: TeamMember[] = [
 ];
 
 export const GLOBAL_ACTIVITY_LOG: ActivityLog[] = [
-    { id: 'log-1', userId: 'user-1', icon: <ClipboardIcon />, text: 'Created a new cropping plan for Maize.', date: new Date(Date.now() - 2 * 60 * 60 * 1000) },
-    { id: 'log-2', userId: 'user-2', icon: <ReceiptGeneratorIcon />, text: 'Confirmed receipt #REC-12346.', date: new Date(Date.now() - 5 * 60 * 60 * 1000) },
-    { id: 'log-3', userId: 'user-1', icon: <LivestockPlannerIcon />, text: 'Logged vaccination event for Cattle.', date: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+    { id: 'log-1', userId: 'user-1', icon: 'assignment', text: 'Created a new cropping plan for Maize.', date: new Date(Date.now() - 2 * 60 * 60 * 1000) },
+    { id: 'log-2', userId: 'user-2', icon: 'receipt_long', text: 'Confirmed receipt #REC-12346.', date: new Date(Date.now() - 5 * 60 * 60 * 1000) },
+    { id: 'log-3', userId: 'user-1', icon: 'pets', text: 'Logged vaccination event for Cattle.', date: new Date(Date.now() - 24 * 60 * 60 * 1000) },
 ];
 
 export const SUPPORT_PROGRAMS: SupportProgram[] = [

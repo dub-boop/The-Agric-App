@@ -39,7 +39,7 @@ interface ReceiptGeneratorPageProps {
     farmLocations: FarmLocation[];
     selectedLocationId: number | 'all';
     setSelectedLocationId: (id: number | 'all') => void;
-    onAddActivity: (text: string, icon: React.ReactElement) => void;
+    onAddActivity: (text: string, icon: string) => void;
 }
 
 const ReceiptGeneratorPage = ({ setSidebarOpen, setPendingDocuments, rejectedDocuments, setRejectedDocuments, businessProfile, farmLocations, selectedLocationId, setSelectedLocationId, onAddActivity }: ReceiptGeneratorPageProps) => {
@@ -176,7 +176,7 @@ const ReceiptGeneratorPage = ({ setSidebarOpen, setPendingDocuments, rejectedDoc
         };
 
         setPendingDocuments(prev => [newDocument, ...prev]);
-        onAddActivity(`Submitted a new ${newDocument.documentType}: ${newDocument.id}.`, <ReceiptGeneratorIcon className="h-5 w-5" />);
+        onAddActivity(`Submitted a new ${newDocument.documentType}: ${newDocument.id}.`, 'receipt_long');
 
         // If it was an edited rejected doc, remove it from the rejected list
         if(docId) {

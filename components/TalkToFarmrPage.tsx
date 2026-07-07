@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 // FIX: Correctly import GoogleGenAI and GenerateContentResponse as per the new API guidelines.
-import { GoogleGenerativeAI, GenerateContentResponse } from '@google/generative-ai';
+import { GoogleGenAI, GenerateContentResponse } from '@google/genai';
 import { MenuIcon, CloseIcon } from '../constants';
 
 // --- Helper Functions & Types ---

@@ -1,6 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { doc, getDoc, setDoc, getDocFromCache } from 'firebase/firestore';
+import { auth, db } from './firebase';
+import { convertTimestampsToDates, sanitizeForFirestore } from './firestoreService';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
+import UpgradeModal from './components/UpgradeModal';
 import SettingsPage from './components/SettingsPage';
 import FarmRecordsPage from './components/FarmRecordsPage';
 import CroppingPlannerPage from './components/CroppingPlannerPage';
@@ -16,6 +21,7 @@ import GovNgoSupportPage from './components/GovNgoSupportPage';
 import AuthPage from './components/AuthPage';
 import PrivacyPolicyPage from './components/PrivacyPolicyPage';
 import TermsOfServicePage from './components/TermsOfServicePage';
+import PaymentPage from './components/PaymentPage';
 import { PENDING_DOCUMENTS_DATA, REJECTED_DATA, BUSINESS_PROFILE_DATA, USER_PROFILE_DATA, TEAM_MEMBERS_DATA, GLOBAL_ACTIVITY_LOG, HEALTH_EVENTS, LIVESTOCK_DATA, CROP_PLANS, LIVESTOCK_TASKS, INPUT_INVENTORY_DATA, TOOLS_EQUIPMENT_DATA, BREEDING_RECORDS } from './constants';
 import type { ActivityLog, FinancialDocument, RejectedFinancialDocument, BusinessProfile, UserProfile, FarmLocation, Payment, TeamMember, HealthEvent, LivestockRecord, CropPlan, LivestockTask, InputInventoryItem, ToolEquipmentItem, BreedingRecord, CroppingActivity } from './types';
 
@@ -27,9 +33,12 @@ const INITIAL_FARM_LOCATIONS: FarmLocation[] = [
 ];
 
 function App() {
-  const [appState, setAppState] = useState<'landing' | 'auth' | 'onboarding' | 'dashboard' | 'privacy' | 'terms'>('landing');
+  const [appState, setAppState] = useState<'landing' | 'auth' | 'payment' | 'onboarding' | 'dashboard' | 'privacy' | 'terms'>('landing');
+  const [selectedPlan, setSelectedPlan] = useState<'Starter' | 'Pro' | 'Premium'>('Starter');
+  const [isNewUser, setIsNewUser] = useState<boolean>(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activePage, setActivePage] = useState('Farm House');
+  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const [selectedCrops, setSelectedCrops] = useState<string[]>(['Maize', 'Cassava', 'Yam']);
   const [selectedLivestock, setSelectedLivestock] = useState<string[]>(['Cattle', 'Goat', 'Sheep', 'Chicken', 'Fish', 'Pig']);
   const [pendingDocuments, setPendingDocuments] = useState<FinancialDocument[]>(PENDING_DOCUMENTS_DATA);
@@ -52,9 +61,199 @@ function App() {
   const [breedingRecords, setBreedingRecords] = useState<BreedingRecord[]>(BREEDING_RECORDS);
   const [activityLog, setActivityLog] = useState<ActivityLog[]>(GLOBAL_ACTIVITY_LOG);
   
+  const [currentUserAuth, setCurrentUserAuth] = useState<any>(null);
+  const [loadingData, setLoadingData] = useState(true);
+
+  // Listen to Auth State
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      setCurrentUserAuth(user);
+      if (user) {
+        setLoadingData(true);
+        try {
+          const userDocRef = doc(db, 'users', user.uid);
+          let docSnap;
+          try {
+            docSnap = await getDoc(userDocRef);
+          } catch (fetchErr: any) {
+            const isOffline = fetchErr && (
+              String(fetchErr.message || fetchErr).toLowerCase().includes('offline') || 
+              String(fetchErr.message || fetchErr).toLowerCase().includes('failed to get document') || 
+              String(fetchErr.message || fetchErr).toLowerCase().includes('unavailable')
+            );
+            if (isOffline) {
+              console.warn("Client offline. Attempting to load user data from Firestore cache...", fetchErr);
+              docSnap = await getDocFromCache(userDocRef);
+            } else {
+              throw fetchErr;
+            }
+          }
+
+          if (docSnap.exists()) {
+            const rawData = docSnap.data();
+            const data = convertTimestampsToDates(rawData);
+
+            if (data.selectedCrops) setSelectedCrops(data.selectedCrops);
+            if (data.selectedLivestock) setSelectedLivestock(data.selectedLivestock);
+            if (data.pendingDocuments) setPendingDocuments(data.pendingDocuments);
+            if (data.rejectedDocuments) setRejectedDocuments(data.rejectedDocuments);
+            if (data.businessProfile) setBusinessProfile(data.businessProfile);
+            if (data.userProfile) {
+              setUserProfile(data.userProfile);
+            } else {
+              setUserProfile(prev => ({ ...prev, email: user.email || '' }));
+            }
+            if (data.incomeRecords) setIncomeRecords(data.incomeRecords);
+            if (data.expenditureRecords) setExpenditureRecords(data.expenditureRecords);
+            if (data.farmLocations) setFarmLocations(data.farmLocations);
+            if (data.teamMembers) setTeamMembers(data.teamMembers);
+            if (data.currentUserPlan) setCurrentUserPlan(data.currentUserPlan);
+            if (data.healthEvents) setHealthEvents(data.healthEvents);
+            if (data.animals) setAnimals(data.animals);
+            if (data.cropPlans) setCropPlans(data.cropPlans);
+            if (data.livestockTasks) setLivestockTasks(data.livestockTasks);
+            if (data.croppingActivities) setCroppingActivities(data.croppingActivities);
+            if (data.inputsInventory) setInputsInventory(data.inputsInventory);
+            if (data.toolsEquipment) setToolsEquipment(data.toolsEquipment);
+            if (data.breedingRecords) setBreedingRecords(data.breedingRecords);
+            if (data.activityLog) {
+              const sanitizedLogs = Array.isArray(data.activityLog)
+                ? data.activityLog.map((log: any) => ({
+                    ...log,
+                    icon: (log && typeof log.icon === 'string') ? log.icon : 'assignment'
+                  }))
+                : [];
+              setActivityLog(sanitizedLogs);
+            }
+            
+            const loadedPlan = data.currentUserPlan || 'Starter';
+            if ((selectedPlan === 'Pro' || selectedPlan === 'Premium') && loadedPlan === 'Starter') {
+              setIsNewUser(false);
+              setAppState('payment');
+            } else {
+              setAppState('dashboard');
+            }
+          } else {
+            // Document doesn't exist yet, we'll create it upon first state change or onboarding completion
+            setUserProfile(prev => ({ 
+              ...prev, 
+              email: user.email || '',
+              name: user.displayName || prev.name || ''
+            }));
+            setIsNewUser(true);
+            if (selectedPlan === 'Pro' || selectedPlan === 'Premium') {
+              setAppState('payment');
+            } else {
+              setAppState('onboarding');
+            }
+          }
+        } catch (err: any) {
+          const isOffline = err && (
+            String(err.message || err).toLowerCase().includes('offline') || 
+            String(err.message || err).toLowerCase().includes('failed to get document') || 
+            String(err.message || err).toLowerCase().includes('unavailable')
+          );
+          if (isOffline) {
+            console.warn("Offline loading mode: Using default local values.", err);
+          } else {
+            console.error("Error loading user data from Firestore:", err);
+          }
+          // Graceful fallback for offline mode or network errors
+          setUserProfile(prev => ({ 
+            ...prev, 
+            email: user.email || '',
+            name: user.displayName || prev.name || ''
+          }));
+          setIsNewUser(false);
+          setAppState('dashboard');
+        } finally {
+          setLoadingData(false);
+        }
+      } else {
+        setLoadingData(false);
+        // If logged out, only redirect to landing from private sections
+        setAppState(prev => (prev === 'dashboard' || prev === 'onboarding') ? 'landing' : prev);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Debounced auto-save to Firestore when any state updates
+  useEffect(() => {
+    if (!currentUserAuth || loadingData) return;
+
+    const timeoutId = setTimeout(async () => {
+      try {
+        const userDocRef = doc(db, 'users', currentUserAuth.uid);
+        const payload = sanitizeForFirestore({
+          email: currentUserAuth.email || '',
+          selectedCrops,
+          selectedLivestock,
+          pendingDocuments,
+          rejectedDocuments,
+          businessProfile,
+          userProfile,
+          incomeRecords,
+          expenditureRecords,
+          farmLocations,
+          teamMembers,
+          currentUserPlan,
+          healthEvents,
+          animals,
+          cropPlans,
+          livestockTasks,
+          croppingActivities,
+          inputsInventory,
+          toolsEquipment,
+          breedingRecords,
+          activityLog,
+          updatedAt: new Date()
+        });
+        await setDoc(userDocRef, payload, { merge: true });
+        console.log("Farm state auto-saved to Firestore.");
+      } catch (err: any) {
+        const isOffline = err && (
+          String(err.message || err).toLowerCase().includes('offline') || 
+          String(err.message || err).toLowerCase().includes('failed to get document') || 
+          String(err.message || err).toLowerCase().includes('unavailable')
+        );
+        if (isOffline) {
+          console.warn("Unable to auto-save farm state: Client is offline.");
+        } else {
+          console.error("Error auto-saving farm state to Firestore:", err);
+        }
+      }
+    }, 1500);
+
+    return () => clearTimeout(timeoutId);
+  }, [
+    currentUserAuth,
+    loadingData,
+    selectedCrops,
+    selectedLivestock,
+    pendingDocuments,
+    rejectedDocuments,
+    businessProfile,
+    userProfile,
+    incomeRecords,
+    expenditureRecords,
+    farmLocations,
+    teamMembers,
+    currentUserPlan,
+    healthEvents,
+    animals,
+    cropPlans,
+    livestockTasks,
+    croppingActivities,
+    inputsInventory,
+    toolsEquipment,
+    breedingRecords,
+    activityLog
+  ]);
+
   const currentUser = teamMembers.find(member => member.email.toLowerCase() === userProfile.email.toLowerCase()) || teamMembers[0];
 
-  const addActivityLog = (text: string, icon: React.ReactElement<{ className?: string }>) => {
+  const addActivityLog = (text: string, icon: string) => {
     if (!currentUser) return;
     const newLog: ActivityLog = {
         id: `log-${Date.now()}`,
@@ -101,6 +300,56 @@ function App() {
     ));
   };
 
+  const handleDeleteAccount = () => {
+    signOut(auth);
+    setAppState('landing');
+    setActivePage('Farm House');
+    setSelectedCrops(['Maize', 'Cassava', 'Yam']);
+    setSelectedLivestock(['Cattle', 'Goat', 'Sheep', 'Chicken', 'Fish', 'Pig']);
+    setPendingDocuments(PENDING_DOCUMENTS_DATA);
+    setRejectedDocuments(REJECTED_DATA);
+    setBusinessProfile(BUSINESS_PROFILE_DATA);
+    setUserProfile(USER_PROFILE_DATA);
+    setIncomeRecords([]);
+    setExpenditureRecords([]);
+    setFarmLocations(INITIAL_FARM_LOCATIONS);
+    setTeamMembers(TEAM_MEMBERS_DATA);
+    setSelectedLocationId('all');
+    setCurrentUserPlan('Starter');
+    setHealthEvents(HEALTH_EVENTS);
+    setAnimals(LIVESTOCK_DATA);
+    setCropPlans(CROP_PLANS);
+    setLivestockTasks(LIVESTOCK_TASKS);
+    setCroppingActivities([]);
+    setInputsInventory(INPUT_INVENTORY_DATA);
+    setToolsEquipment(TOOLS_EQUIPMENT_DATA);
+    setBreedingRecords(BREEDING_RECORDS);
+    setActivityLog(GLOBAL_ACTIVITY_LOG);
+  };
+
+  const handleDeleteFarmLocation = (id: number) => {
+    setFarmLocations(current => current.filter(farm => farm.id !== id));
+    setCropPlans(current => current.filter(plan => plan.farmId !== id));
+    setAnimals(current => current.filter(animal => animal.farmId !== id));
+    setBreedingRecords(current => current.filter(record => record.farmId !== id));
+    setInputsInventory(current => current.filter(item => item.farmId !== id));
+    setToolsEquipment(current => current.filter(item => item.farmId !== id));
+    setCroppingActivities(current => current.filter(activity => activity.farmId !== id));
+    setLivestockTasks(current => current.filter(task => task.farmId !== id));
+    setIncomeRecords(current => current.filter(doc => doc.farmId !== id));
+    setExpenditureRecords(current => current.filter(doc => doc.farmId !== id));
+    setTeamMembers(current => current.map(member => member.farmId === id ? { ...member, farmId: undefined } : member));
+    if (selectedLocationId === id) {
+      setSelectedLocationId('all');
+    }
+  };
+
+  const handleLogout = () => {
+    signOut(auth);
+    setAppState('landing');
+    setActivePage('Farm House');
+  };
+
   const renderPage = () => {
     if (!currentUser.permissions.includes(activePage)) {
         const canSeeDashboard = currentUser.permissions.includes('Farm House');
@@ -118,6 +367,7 @@ function App() {
                       currentUserPlan={currentUserPlan}
                       healthEvents={healthEvents}
                       currentUser={currentUser}
+                      onUpgradePlan={() => setIsUpgradeModalOpen(true)}
                    />;
         } else {
              // If user can't even see the dashboard, show an access denied message
@@ -147,6 +397,13 @@ function App() {
                   teamMembers={teamMembers}
                   setTeamMembers={setTeamMembers}
                   currentUserPlan={currentUserPlan}
+                  onUpgradePlan={() => setIsUpgradeModalOpen(true)}
+                  onDeleteAccount={handleDeleteAccount}
+                  onLogout={handleLogout}
+                  onDeleteFarmLocation={handleDeleteFarmLocation}
+                  userProfile={userProfile}
+                  setUserProfile={setUserProfile}
+                  onAddActivity={addActivityLog}
                 />;
       case 'Farm Records':
         return <FarmRecordsPage 
@@ -265,13 +522,32 @@ function App() {
                   currentUserPlan={currentUserPlan}
                   healthEvents={healthEvents}
                   currentUser={currentUser}
+                  onUpgradePlan={() => setIsUpgradeModalOpen(true)}
                />;
     }
   };
   
+  if (loadingData) {
+    return (
+      <div className="min-h-screen bg-[#1E5631] flex flex-col items-center justify-center p-4 font-sans text-white">
+        <div className="relative flex-shrink-0 mb-6">
+          <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center">
+            <div className="w-10 h-10 bg-white/20 rounded-full animate-pulse"></div>
+          </div>
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-6 bg-green-300 rounded-full shadow-[0_0_16px_6px] shadow-green-400/80 animate-pulse"></div>
+        </div>
+        <h1 className="text-xl font-bold tracking-wider mb-2">THE AGRIC APP</h1>
+        <p className="text-sm opacity-80 animate-pulse">Synchronizing with cloud database...</p>
+      </div>
+    );
+  }
+
   if (appState === 'landing') {
     return <LandingPage 
-              onStartTrial={() => setAppState('auth')}
+              onStartTrial={(plan) => {
+                setSelectedPlan(plan || 'Starter');
+                setAppState('auth');
+              }}
               onNavigateToPrivacy={() => setAppState('privacy')}
               onNavigateToTerms={() => setAppState('terms')}
            />;
@@ -284,13 +560,29 @@ function App() {
   if (appState === 'terms') {
     return <TermsOfServicePage onBack={() => setAppState('landing')} />;
   }
+
+  if (appState === 'payment') {
+    return (
+      <PaymentPage
+        selectedPlan={selectedPlan === 'Starter' ? 'Pro' : selectedPlan}
+        onPaymentSuccess={(plan) => {
+          setCurrentUserPlan(plan);
+          setAppState(isNewUser ? 'onboarding' : 'dashboard');
+        }}
+        onCancel={() => {
+          setAppState('landing');
+        }}
+      />
+    );
+  }
   
   if (appState === 'auth') {
     return (
         <AuthPage
-            onLogin={() => setAppState('dashboard')}
-            onSignUp={() => setAppState('onboarding')}
+            onLogin={() => {}}
+            onSignUp={() => {}}
             onAcceptInvitation={handleAcceptInvitation}
+            onGoToLanding={() => setAppState('landing')}
         />
     );
   }
@@ -329,8 +621,16 @@ function App() {
         activePage={activePage}
         setActivePage={setActivePage}
         currentUser={currentUser}
+        onGoToLanding={() => setAppState('landing')}
       />
       {renderPage()}
+      
+      <UpgradeModal 
+        isOpen={isUpgradeModalOpen} 
+        onClose={() => setIsUpgradeModalOpen(false)} 
+        currentPlan={currentUserPlan} 
+        onUpgrade={setCurrentUserPlan} 
+      />
     </div>
   );
 }

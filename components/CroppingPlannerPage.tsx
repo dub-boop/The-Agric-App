@@ -843,7 +843,7 @@ interface CroppingPlannerPageProps {
     setPlans: React.Dispatch<React.SetStateAction<CropPlan[]>>;
     croppingActivities: CroppingActivity[];
     setCroppingActivities: React.Dispatch<React.SetStateAction<CroppingActivity[]>>;
-    onAddActivity: (text: string, icon: React.ReactElement) => void;
+    onAddActivity: (text: string, icon: string) => void;
 }
 
 const CroppingPlannerPage = ({ setSidebarOpen, availableCrops, farmLocations, selectedLocationId, setSelectedLocationId, plans, setPlans, croppingActivities, setCroppingActivities, onAddActivity }: CroppingPlannerPageProps) => {
@@ -907,7 +907,7 @@ const CroppingPlannerPage = ({ setSidebarOpen, availableCrops, farmLocations, se
                 tasks: newTasks,
             };
             setPlans(prevPlans => [...prevPlans, newPlan].sort((a,b) => a.plantingDate.getTime() - b.plantingDate.getTime()));
-            onAddActivity(`Created a new cropping plan for ${planData.cropName}.`, <CroppingPlannerIcon className="h-5 w-5" />);
+            onAddActivity(`Created a new cropping plan for ${planData.cropName}.`, 'eco');
         }
         setEditingPlan(null);
     };
@@ -934,7 +934,7 @@ const CroppingPlannerPage = ({ setSidebarOpen, availableCrops, farmLocations, se
             if (plan && task) {
                 // Check if it's not already completed to avoid duplicate logs
                 if (!task.completed) {
-                    onAddActivity(`Completed task: "${task.name}" for ${plan.cropName}.`, <ClipboardIcon className="h-5 w-5" />);
+                    onAddActivity(`Completed task: "${task.name}" for ${plan.cropName}.`, 'assignment');
                 }
             }
         }
@@ -1006,7 +1006,7 @@ const CroppingPlannerPage = ({ setSidebarOpen, availableCrops, farmLocations, se
     const handleActivityStatusChange = (id: string, status: TaskStatus) => {
         const activity = croppingActivities.find(a => a.id === id);
         if (activity && activity.status !== 'Done' && status === 'Done') {
-            onAddActivity(`Completed cropping activity: "${activity.title}".`, <ClipboardIcon className="h-5 w-5" />);
+            onAddActivity(`Completed cropping activity: "${activity.title}".`, 'assignment');
         }
         setCroppingActivities(prev => prev.map(a => a.id === id ? { ...a, status } : a));
     };

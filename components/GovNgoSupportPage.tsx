@@ -3,7 +3,7 @@ import { MenuIcon, CloseIcon, SUPPORT_PROGRAMS } from '../constants';
 import type { SupportProgram, SupportProgramCategory, SupportProgramProvider } from '../types';
 
 // Reusable Components
-const ProgramCard = ({ program, onSelect }: { program: SupportProgram, onSelect: () => void }) => {
+const ProgramCard = ({ program, onSelect }: { program: SupportProgram, onSelect: () => void, key?: React.Key }) => {
     const statusColors = {
         Open: "bg-green-100 text-green-800 border-green-200",
         Closed: "bg-red-100 text-red-800 border-red-200",

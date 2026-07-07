@@ -904,7 +904,7 @@ const AnimalProfilePanel = ({
         </div>
     );
     
-    const HealthHistoryItem = ({ event }: { event: HealthEvent }) => {
+    const HealthHistoryItem = ({ event }: { event: HealthEvent, key?: React.Key }) => {
         return (
             <div className="flex space-x-4 py-3 border-b border-gray-100 last:border-b-0">
                 <div className="text-center w-20 flex-shrink-0">
@@ -1173,7 +1173,7 @@ const OverviewTab = ({ animals, healthEvents, tasks }: { animals: LivestockRecor
                                             <span className='text-xs font-semibold text-red-700'>
                                                 {
                                                     Object.entries(animal.statusCounts)
-                                                    .filter(([status, count]) => (status === 'Sick' || status === 'Quarantined') && count > 0)
+                                                    .filter(([status, count]) => (status === 'Sick' || status === 'Quarantined') && (count as number) > 0)
                                                     .map(([status, count]) => `${status}: ${count}`)
                                                     .join(', ')
                                                 }
@@ -1474,7 +1474,7 @@ const BreedingTab = ({ animals, breedingRecords, setAnimals, setBreedingRecords,
     setBreedingRecords: React.Dispatch<React.SetStateAction<BreedingRecord[]>>;
     farmLocations: FarmLocation[];
     selectedLocationId: number | 'all';
-    onAddActivity: (text: string, icon: React.ReactElement) => void;
+    onAddActivity: (text: string, icon: string) => void;
 }) => {
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [isBreedingFormOpen, setIsBreedingFormOpen] = useState(false);
@@ -1517,7 +1517,7 @@ const BreedingTab = ({ animals, breedingRecords, setAnimals, setBreedingRecords,
                 expectedDueDate,
             };
             setBreedingRecords(prev => [newRecord, ...prev]);
-            onAddActivity(`Created a new pairing record for Dam ${data.damId}.`, <HeartIcon className="h-5 w-5" />);
+            onAddActivity(`Created a new pairing record for Dam ${data.damId}.`, 'favorite_border');
         }
         setIsFormOpen(false);
     };
@@ -1570,7 +1570,7 @@ const BreedingTab = ({ animals, breedingRecords, setAnimals, setBreedingRecords,
     
         if (newAnimals.length > 0) {
             setAnimals((prev: LivestockRecord[]) => [...prev, ...newAnimals]);
-            onAddActivity(`Recorded birth of ${newAnimals.length} offspring for Dam ${updatedBreedingRecord?.damId}.`, <HeartIcon className="h-5 w-5" />);
+            onAddActivity(`Recorded birth of ${newAnimals.length} offspring for Dam ${updatedBreedingRecord?.damId}.`, 'favorite_border');
         }
     
         setIsBreedingFormOpen(false);
@@ -1891,7 +1891,7 @@ interface LivestockPlannerPageProps {
     setTasks: React.Dispatch<React.SetStateAction<LivestockTask[]>>;
     breedingRecords: BreedingRecord[];
     setBreedingRecords: React.Dispatch<React.SetStateAction<BreedingRecord[]>>;
-    onAddActivity: (text: string, icon: React.ReactElement) => void;
+    onAddActivity: (text: string, icon: string) => void;
 }
 
 
@@ -2062,7 +2062,7 @@ const LivestockPlannerPage = ({
                     source: data.source,
                  };
                 setAnimals(prev => [newAnimal, ...prev]);
-                onAddActivity(`Added a new ${data.species} record: ${data.id}.`, <LivestockPlannerIcon className="h-5 w-5" />);
+                onAddActivity(`Added a new ${data.species} record: ${data.id}.`, 'pets');
             } else { // BATCH
                 const quantity = data.quantity || 1;
                 const newBatch: BatchAnimal = {
@@ -2079,7 +2079,7 @@ const LivestockPlannerPage = ({
                     source: data.source,
                 };
                 setAnimals(prev => [newBatch, ...prev]);
-                onAddActivity(`Added a new ${data.species} batch: ${data.batchName}.`, <LivestockPlannerIcon className="h-5 w-5" />);
+                onAddActivity(`Added a new ${data.species} batch: ${data.batchName}.`, 'pets');
             }
         }
         setIsAnimalFormOpen(false);
@@ -2114,7 +2114,7 @@ const LivestockPlannerPage = ({
             };
             setHealthEvents(prev => [newEvent, ...prev]);
 
-            onAddActivity(`Logged a '${data.type}' health event.`, <StethoscopeIcon className="h-5 w-5" />);
+            onAddActivity(`Logged a '${data.type}' health event.`, 'medical_services');
             if (!isFutureEvent) {
                 setAnimals(prevAnimals => applyHealthEventEffects(prevAnimals, data));
             }
@@ -2183,7 +2183,7 @@ const LivestockPlannerPage = ({
         if (status === 'Done') {
             const task = tasks.find(t => t.id === id);
             if (task && task.status !== 'Done') { // Log only on transition to Done
-                onAddActivity(`Completed livestock task: "${task.title}".`, <ClipboardIcon className="h-5 w-5" />);
+                onAddActivity(`Completed livestock task: "${task.title}".`, 'assignment');
             }
         }
         setTasks(prev => prev.map(t => t.id === id ? { ...t, status } : t));

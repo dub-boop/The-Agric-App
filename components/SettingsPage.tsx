@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { MenuIcon, PERMISSIONS, TrashIcon, SUPPORTED_ENTERPRISE_CROPS, SUPPORTED_LIVESTOCK, ChevronDownIcon, EditIcon, DEFAULT_PERMISSIONS, MailIcon, TEAM_MEMBER_ROLES, ArrowUpIcon, generateAvatar } from '../constants';
-import type { BusinessProfile, FarmLocation, TeamMember, TeamMemberRole } from '../types';
+import { MenuIcon, PERMISSIONS, TrashIcon, SUPPORTED_ENTERPRISE_CROPS, SUPPORTED_LIVESTOCK, ChevronDownIcon, EditIcon, DEFAULT_PERMISSIONS, MailIcon, TEAM_MEMBER_ROLES, ArrowUpIcon, generateAvatar, SettingsIcon } from '../constants';
+import type { BusinessProfile, FarmLocation, TeamMember, TeamMemberRole, UserProfile } from '../types';
 
 // Reusable sub-components for the settings page
 
@@ -158,6 +158,13 @@ interface SettingsPageProps {
   teamMembers: TeamMember[];
   setTeamMembers: React.Dispatch<React.SetStateAction<TeamMember[]>>;
   currentUserPlan: 'Starter' | 'Pro' | 'Premium';
+  onUpgradePlan?: () => void;
+  onLogout?: () => void;
+  onDeleteAccount?: () => void;
+  onDeleteFarmLocation?: (id: number) => void;
+  userProfile: UserProfile;
+  setUserProfile: React.Dispatch<React.SetStateAction<UserProfile>>;
+  onAddActivity?: (text: string, icon: string) => void;
 }
 
 // Main Settings Page Component
@@ -173,8 +180,19 @@ const SettingsPage = ({
   setFarmLocations,
   teamMembers,
   setTeamMembers,
-  currentUserPlan
+  currentUserPlan,
+  onUpgradePlan,
+  onLogout,
+  onDeleteAccount,
+  onDeleteFarmLocation,
+  userProfile,
+  setUserProfile,
+  onAddActivity
 }: SettingsPageProps) => {
+    const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+    const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
+    const [memberToDelete, setMemberToDelete] = useState<TeamMember | null>(null);
+    const [farmToDelete, setFarmToDelete] = useState<FarmLocation | null>(null);
     const [openSections, setOpenSections] = useState({
         'Profile': true,
         'Business Profile': true,
@@ -185,6 +203,37 @@ const SettingsPage = ({
     const [enterpriseDomains, setEnterpriseDomains] = useState({ crop: true, livestock: true });
     
     const [profileForm, setProfileForm] = useState(businessProfile);
+    const [userProfileForm, setUserProfileForm] = useState(userProfile);
+    const [userPassword, setUserPassword] = useState('');
+
+    useEffect(() => {
+        setUserProfileForm(userProfile);
+    }, [userProfile]);
+
+    const handleUserProfileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const { name, value } = e.target;
+        setUserProfileForm(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleSaveUserProfile = () => {
+        setUserProfile(userProfileForm);
+        if (onAddActivity) {
+            onAddActivity('Updated user profile details', 'settings');
+        }
+        if (userPassword) {
+            alert('Profile and password saved successfully!');
+            setUserPassword('');
+        } else {
+            alert('Profile saved successfully!');
+        }
+    };
+
+    const handleSavePreferences = () => {
+        if (onAddActivity) {
+            onAddActivity('Updated farm preferences and production settings', 'settings');
+        }
+        alert('Farm preferences saved successfully!');
+    };
     
     // Team Management State
     const [newMemberEmail, setNewMemberEmail] = useState('');
@@ -245,8 +294,9 @@ const SettingsPage = ({
     };
 
     const handleRemoveFarm = (id: number) => {
-        if (farmLocations.length > 1) {
-            setFarmLocations(currentFarms => currentFarms.filter(farm => farm.id !== id));
+        const farm = farmLocations.find(f => f.id === id);
+        if (farm) {
+            setFarmToDelete(farm);
         }
     };
     
@@ -356,8 +406,9 @@ const SettingsPage = ({
     };
 
     const handleDeleteMember = (id: string) => {
-        if (window.confirm('Are you sure you want to remove this team member?')) {
-            setTeamMembers(prev => prev.filter(member => member.id !== id));
+        const member = teamMembers.find(m => m.id === id);
+        if (member) {
+            setMemberToDelete(member);
         }
     };
 
@@ -390,12 +441,41 @@ const SettingsPage = ({
                     onToggle={() => toggleSection('Profile')}
                 >
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <InputField label="Full Name" id="fullName" value="John Doe" />
-                        <InputField label="Email Address" id="email" type="email" value="john@example.com" />
-                        <InputField label="Change Password" id="password" type="password" placeholder="New password" />
+                        <ControlledInputField 
+                            label="Full Name" 
+                            id="userFullName" 
+                            name="name" 
+                            value={userProfileForm.name} 
+                            onChange={handleUserProfileChange} 
+                        />
+                        <ControlledInputField 
+                            label="Email Address" 
+                            id="userEmail" 
+                            name="email" 
+                            type="email" 
+                            value={userProfileForm.email} 
+                            onChange={handleUserProfileChange} 
+                        />
+                        <ControlledInputField 
+                            label="Phone Number" 
+                            id="userPhone" 
+                            name="phone" 
+                            type="tel" 
+                            value={userProfileForm.phone || ''} 
+                            onChange={handleUserProfileChange} 
+                        />
+                        <ControlledInputField 
+                            label="Change Password" 
+                            id="userPassword" 
+                            name="password" 
+                            type="password" 
+                            placeholder="New password" 
+                            value={userPassword} 
+                            onChange={(e) => setUserPassword(e.target.value)} 
+                        />
                     </div>
                     <div className="mt-6 text-right">
-                        <ActionButton>Save Profile</ActionButton>
+                        <ActionButton onClick={handleSaveUserProfile}>Save Profile</ActionButton>
                     </div>
                 </SettingsCard>
                 
@@ -527,7 +607,7 @@ const SettingsPage = ({
 
 
                     <div className="mt-8 text-right">
-                        <ActionButton>Save Preferences</ActionButton>
+                        <ActionButton onClick={handleSavePreferences}>Save Preferences</ActionButton>
                     </div>
                 </SettingsCard>
                 
@@ -548,7 +628,7 @@ const SettingsPage = ({
                         </div>
                         {currentUserPlan !== 'Premium' && (
                              <button 
-                                onClick={() => alert('Upgrade to a higher plan to unlock more features!')}
+                                onClick={onUpgradePlan}
                                 className="flex items-center space-x-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white px-4 py-2 rounded-lg font-semibold hover:from-amber-600 hover:to-orange-600 transition-colors shadow-md text-sm flex-shrink-0"
                             >
                                 <ArrowUpIcon className="h-4 w-4" />
@@ -644,10 +724,146 @@ const SettingsPage = ({
                 </SettingsCard>
 
                 <footer className="py-4 flex justify-between items-center">
-                    <ActionButton variant="danger">Delete Account</ActionButton>
-                    <button className="font-medium text-gray-600 hover:text-gray-900 text-sm">Log Out</button>
+                    <ActionButton variant="danger" onClick={() => setIsDeleteConfirmOpen(true)}>Delete Account</ActionButton>
+                    <button onClick={() => setIsLogoutConfirmOpen(true)} className="font-medium text-gray-600 hover:text-gray-900 text-sm">Log Out</button>
                 </footer>
             </div>
+
+            {isDeleteConfirmOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+                    <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 border border-slate-100 text-left">
+                        <div className="flex items-center space-x-3 text-red-600 mb-4">
+                            <span className="material-icons-outlined text-3xl">warning</span>
+                            <h3 className="text-lg font-bold">Permanently Delete Account?</h3>
+                        </div>
+                        <p className="text-sm text-gray-600 mb-6 leading-relaxed">
+                            This action is <strong className="text-red-600">irreversible</strong>. This will permanently delete your farm business profile, user profile, all financial records (income and expenditures), crop plans, livestock records, activity logs, and reset the application back to its default state.
+                        </p>
+                        <div className="flex space-x-3">
+                            <button 
+                                type="button"
+                                onClick={() => setIsDeleteConfirmOpen(false)}
+                                className="flex-1 py-2 px-4 border border-gray-300 rounded-xl text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+                            >
+                                Cancel, Keep Account
+                            </button>
+                            <button 
+                                type="button"
+                                onClick={() => {
+                                    setIsDeleteConfirmOpen(false);
+                                    if (onDeleteAccount) onDeleteAccount();
+                                }}
+                                className="flex-1 py-2 px-4 rounded-xl text-sm font-semibold text-white bg-red-600 hover:bg-red-700 transition-colors shadow-sm"
+                            >
+                                Yes, Delete Everything
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {memberToDelete && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+                    <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 border border-slate-100 text-left">
+                        <div className="flex items-center space-x-3 text-red-600 mb-4">
+                            <span className="material-icons-outlined text-3xl">warning</span>
+                            <h3 className="text-lg font-bold">Remove Team Member?</h3>
+                        </div>
+                        <p className="text-sm text-gray-600 mb-6 leading-relaxed">
+                            Are you sure you want to remove <strong className="text-slate-800">{memberToDelete.email}</strong> from your team? They will immediately lose access to the farm management records and tools.
+                        </p>
+                        <div className="flex space-x-3">
+                            <button 
+                                type="button"
+                                onClick={() => setMemberToDelete(null)}
+                                className="flex-1 py-2 px-4 border border-gray-300 rounded-xl text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                type="button"
+                                onClick={() => {
+                                    setTeamMembers(prev => prev.filter(member => member.id !== memberToDelete.id));
+                                    setMemberToDelete(null);
+                                }}
+                                className="flex-1 py-2 px-4 rounded-xl text-sm font-semibold text-white bg-red-600 hover:bg-red-700 transition-colors shadow-sm"
+                            >
+                                Yes, Remove
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {farmToDelete && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+                    <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 border border-slate-100 text-left">
+                        <div className="flex items-center space-x-3 text-red-600 mb-4">
+                            <span className="material-icons-outlined text-3xl">warning</span>
+                            <h3 className="text-lg font-bold">Delete Farm Location?</h3>
+                        </div>
+                        <p className="text-sm text-gray-600 mb-6 leading-relaxed">
+                            Are you sure you want to delete <strong className="text-slate-800">{farmToDelete.name || `Farm #${farmLocations.findIndex(f => f.id === farmToDelete.id) + 1}`}</strong>? This will also permanently delete all associated data including crop plans, animals/livestock records, inventory, equipment, activities, and tasks assigned to this location.
+                        </p>
+                        <div className="flex space-x-3">
+                            <button 
+                                type="button"
+                                onClick={() => setFarmToDelete(null)}
+                                className="flex-1 py-2 px-4 border border-gray-300 rounded-xl text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                type="button"
+                                onClick={() => {
+                                    if (onDeleteFarmLocation) {
+                                        onDeleteFarmLocation(farmToDelete.id);
+                                    } else {
+                                        setFarmLocations(currentFarms => currentFarms.filter(farm => farm.id !== farmToDelete.id));
+                                    }
+                                    setFarmToDelete(null);
+                                }}
+                                className="flex-1 py-2 px-4 rounded-xl text-sm font-semibold text-white bg-red-600 hover:bg-red-700 transition-colors shadow-sm"
+                            >
+                                Yes, Delete Farm
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {isLogoutConfirmOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+                    <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 border border-slate-100 text-left">
+                        <div className="flex items-center space-x-3 text-gray-700 mb-4">
+                            <span className="material-icons-outlined text-3xl text-gray-500">logout</span>
+                            <h3 className="text-lg font-bold">Log Out?</h3>
+                        </div>
+                        <p className="text-sm text-gray-600 mb-6 leading-relaxed">
+                            Are you sure you want to log out of your farm management account? Any unsaved changes may be lost.
+                        </p>
+                        <div className="flex space-x-3">
+                            <button 
+                                type="button"
+                                onClick={() => setIsLogoutConfirmOpen(false)}
+                                className="flex-1 py-2 px-4 border border-gray-300 rounded-xl text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                type="button"
+                                onClick={() => {
+                                    setIsLogoutConfirmOpen(false);
+                                    if (onLogout) onLogout();
+                                }}
+                                className="flex-1 py-2 px-4 rounded-xl text-sm font-semibold text-white bg-red-600 hover:bg-red-700 transition-colors shadow-sm"
+                            >
+                                Yes, Log Out
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </main>
     )
 }

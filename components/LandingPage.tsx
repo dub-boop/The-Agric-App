@@ -113,7 +113,7 @@ const TestimonialCard = ({ quote, name, role, avatar }: { quote: string, name: s
 
 // --- MAIN LANDING PAGE COMPONENT ---
 
-const LandingPage = ({ onStartTrial, onNavigateToPrivacy, onNavigateToTerms }: { onStartTrial: () => void; onNavigateToPrivacy: () => void; onNavigateToTerms: () => void; }) => {
+const LandingPage = ({ onStartTrial, onNavigateToPrivacy, onNavigateToTerms }: { onStartTrial: (plan?: 'Starter' | 'Pro' | 'Premium') => void; onNavigateToPrivacy: () => void; onNavigateToTerms: () => void; }) => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isScrolled, setIsScrolled] = useState(false);
     
@@ -365,7 +365,7 @@ const LandingPage = ({ onStartTrial, onNavigateToPrivacy, onNavigateToTerms }: {
                                 'Standard Weather & Basic Analytics',
                                 'Community & Email Support'
                             ]} 
-                            onStartTrial={onStartTrial} 
+                            onStartTrial={() => onStartTrial('Starter')} 
                         />
                         <PricingTier 
                             title="Pro" 
@@ -385,7 +385,7 @@ const LandingPage = ({ onStartTrial, onNavigateToPrivacy, onNavigateToTerms }: {
                                 'Priority Email Support'
                             ]} 
                             popular 
-                            onStartTrial={onStartTrial} 
+                            onStartTrial={() => onStartTrial('Pro')} 
                         />
                         <PricingTier 
                             title="Premium" 
@@ -400,7 +400,7 @@ const LandingPage = ({ onStartTrial, onNavigateToPrivacy, onNavigateToTerms }: {
                                 'Dedicated Account Manager',
                                 'Phone Support'
                             ]} 
-                            onStartTrial={onStartTrial} 
+                            onStartTrial={() => onStartTrial('Premium')} 
                         />
                     </div>
                 </div>

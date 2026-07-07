@@ -10,9 +10,10 @@ interface SidebarProps {
   activePage: string;
   setActivePage: (page: string) => void;
   currentUser: TeamMember;
+  onGoToLanding?: () => void;
 }
 
-const Sidebar = ({ isOpen, setIsOpen, activePage, setActivePage, currentUser }: SidebarProps) => {
+const Sidebar = ({ isOpen, setIsOpen, activePage, setActivePage, currentUser, onGoToLanding }: SidebarProps) => {
   const accessibleNavItems = useMemo(() => {
     return NAV_ITEMS.filter(item => currentUser.permissions.includes(item.name));
   }, [currentUser]);
@@ -25,7 +26,10 @@ const Sidebar = ({ isOpen, setIsOpen, activePage, setActivePage, currentUser }: 
       aria-label="Sidebar"
     >
       <div className="p-6 flex items-center justify-between h-24 border-b border-white/10">
-        <div className="flex items-center space-x-3">
+        <div 
+          onClick={onGoToLanding}
+          className={`flex items-center space-x-3 ${onGoToLanding ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
+        >
             <div className="relative flex-shrink-0">
               <div className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center">
                  <div className="w-6 h-6 bg-white/20 rounded-full"></div>

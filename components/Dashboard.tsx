@@ -70,13 +70,13 @@ const getWeatherIcon = (iconCode: string, className?: string) => {
 };
 
 const DataWidget = ({ title, value, unit, icon }: { title: string, value: string | number, unit?: string, icon: React.ReactNode }) => (
-    <div className="flex items-center space-x-2">
-        <div className="text-blue-600">{icon}</div>
-        <div>
-            <p className="text-xs font-semibold text-gray-500">{title}</p>
-            <p className="text-base font-bold text-gray-800">
+    <div className="flex items-center space-x-2 min-w-0">
+        <div className="text-blue-600 flex-shrink-0">{icon}</div>
+        <div className="min-w-0">
+            <p className="text-xs font-semibold text-gray-500 truncate" title={title}>{title}</p>
+            <p className="text-sm sm:text-base font-bold text-gray-800 truncate">
                 {value}
-                {unit && <span className="text-xs font-medium text-gray-600 ml-1">{unit}</span>}
+                {unit && <span className="text-xs font-medium text-gray-600 ml-0.5">{unit}</span>}
             </p>
         </div>
     </div>
@@ -88,7 +88,7 @@ const DataWidget = ({ title, value, unit, icon }: { title: string, value: string
 const ToolCard = ({ item, onClick, notificationCount }: { item: ToolItem, onClick?: () => void, notificationCount?: number }) => (
     <button 
         onClick={onClick}
-        className={`relative ${item.color} text-white p-4 rounded-xl flex flex-col items-center justify-center aspect-[4/3] transform hover:scale-105 transition-transform duration-200 shadow-lg hover:shadow-xl disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-md`}
+        className={`relative ${item.color} text-white p-4 rounded-xl flex flex-col items-center justify-center w-full h-full aspect-[4/3] min-h-[110px] sm:min-h-[120px] transform hover:scale-105 transition-transform duration-200 shadow-lg hover:shadow-xl disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-md`}
         disabled={!onClick}
     >
         {notificationCount && notificationCount > 0 && (
@@ -154,7 +154,7 @@ const WeatherCard = ({ onNavigate, farmLocations }: { onNavigate: () => void, fa
                     </div>
                      <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full font-medium border border-blue-200 capitalize">{currentWeatherData.weather[0].description}</span>
                 </div>
-                <div className="flex flex-col sm:flex-row items-center justify-between w-full gap-6 mt-4">
+                <div className="flex flex-col md:flex-row lg:flex-col xl:flex-row items-center lg:items-start xl:items-center justify-between w-full gap-6 mt-4">
                     {/* Left Part: Icon & Temp */}
                     <div className="flex items-center gap-4">
                         {getWeatherIcon(currentWeatherData.weather[0].icon, 'h-16 w-16 flex-shrink-0')}
@@ -164,7 +164,7 @@ const WeatherCard = ({ onNavigate, farmLocations }: { onNavigate: () => void, fa
                         </div>
                     </div>
                     {/* Right Part: Details */}
-                    <div className="w-full sm:w-auto sm:border-l border-gray-200 sm:pl-6 grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                    <div className="w-full md:w-auto md:border-l lg:border-l-0 xl:border-l border-gray-200 md:pl-6 lg:pl-0 xl:pl-6 grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
                         <div className="flex items-center space-x-1.5"><ThermometerIcon className="h-4 w-4 text-gray-500" /><span>Feels like {Math.round(currentWeatherData.feels_like)}&deg;</span></div>
                         <div className="flex items-center space-x-1.5"><HumidityIcon className="h-4 w-4 text-gray-500" /><span>Humidity: {currentWeatherData.humidity.toFixed(0)}%</span></div>
                         <div className="flex items-center space-x-1.5"><UvIndexIcon className="h-4 w-4 text-gray-500" /><span>UV Index: {currentWeatherData.uvi.toFixed(1)}</span></div>
@@ -176,7 +176,7 @@ const WeatherCard = ({ onNavigate, farmLocations }: { onNavigate: () => void, fa
 
                 <div>
                     <h4 className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wider">Agricultural Conditions</h4>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4 gap-4">
                          <DataWidget title="Soil Temp" value={agriculturalData.soil_temp.toFixed(1)} unit="°C" icon={<ThermometerIcon className="h-5 w-5"/>} />
                          <DataWidget title="Soil Moisture" value={agriculturalData.soil_moisture.toFixed(1)} unit="%" icon={<SoilMoistureIcon className="h-5 w-5"/>} />
                          <DataWidget title="GDD" value={agriculturalData.gdd.toFixed(1)} unit="" icon={<GddIcon className="h-5 w-5"/>} />
@@ -217,7 +217,7 @@ const UserProfileCard = ({ userProfile, businessProfile, onNavigate }: { userPro
     </div>
 );
 
-const Dashboard = ({ setSidebarOpen, setActivePage, userProfile, farmLocations, businessProfile, pendingDocuments, rejectedDocuments, currentUserPlan, healthEvents, currentUser }: { 
+const Dashboard = ({ setSidebarOpen, setActivePage, userProfile, farmLocations, businessProfile, pendingDocuments, rejectedDocuments, currentUserPlan, healthEvents, currentUser, onUpgradePlan }: { 
     setSidebarOpen: (isOpen: boolean) => void; 
     setActivePage: (page: string) => void; 
     userProfile: UserProfile; 
@@ -228,6 +228,7 @@ const Dashboard = ({ setSidebarOpen, setActivePage, userProfile, farmLocations, 
     currentUserPlan: 'Starter' | 'Pro' | 'Premium';
     healthEvents: HealthEvent[];
     currentUser: TeamMember;
+    onUpgradePlan?: () => void;
 }) => {
     
     const livestockNotificationCount = useMemo(() => {
@@ -260,7 +261,7 @@ const Dashboard = ({ setSidebarOpen, setActivePage, userProfile, farmLocations, 
         <div className="flex items-center space-x-2 md:space-x-4">
             {currentUserPlan !== 'Premium' && (
                 <button 
-                    onClick={() => alert('Upgrade to a higher plan to unlock more features!')}
+                    onClick={onUpgradePlan}
                     className="flex items-center space-x-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white px-3 py-2 rounded-lg font-semibold hover:from-amber-600 hover:to-orange-600 transition-colors shadow-md text-sm"
                 >
                     <ArrowUpIcon className="h-4 w-4" />
@@ -277,11 +278,11 @@ const Dashboard = ({ setSidebarOpen, setActivePage, userProfile, farmLocations, 
         </div>
       </header>
       
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
-          <div className="md:col-span-2">
+      <section className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
+          <div className="lg:col-span-2">
             <WeatherCard onNavigate={() => setActivePage('Weather')} farmLocations={farmLocations} />
           </div>
-          <div className="md:col-span-1">
+          <div className="lg:col-span-1">
             <UserProfileCard userProfile={userProfile} businessProfile={businessProfile} onNavigate={() => handleToolClick('User Profile')} />
           </div>
       </section>
