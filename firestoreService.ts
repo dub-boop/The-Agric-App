@@ -6,9 +6,12 @@ import {
   onSnapshot, 
   arrayUnion, 
   arrayRemove,
-  runTransaction
+  runTransaction,
+  collection,
+  getDocs,
+  deleteDoc
 } from 'firebase/firestore';
-import { db } from './firebase';
+import { db, auth } from './firebase';
 import type { 
   ActivityLog, 
   FinancialDocument, 
@@ -195,6 +198,26 @@ export async function updateUserPlan(uid: string, plan: 'Starter' | 'Pro' | 'Pre
   const userDocRef = doc(db, 'users', uid);
   await updateDoc(userDocRef, {
     currentUserPlan: plan,
+    updatedAt: new Date()
+  });
+}
+
+/**
+ * Updates a user's SaaS limits and administrative settings.
+ */
+export async function updateUserSaaSLimits(
+  uid: string, 
+  updates: {
+    currentUserPlan?: 'Starter' | 'Pro' | 'Premium';
+    trialExpiresAt?: string;
+    bonusFarmLocations?: number;
+    bonusTeamMembers?: number;
+    bypassRestrictions?: boolean;
+  }
+) {
+  const userDocRef = doc(db, 'users', uid);
+  await updateDoc(userDocRef, {
+    ...sanitizeForFirestore(updates),
     updatedAt: new Date()
   });
 }
@@ -642,3 +665,190 @@ export async function addActivityLog(uid: string, log: ActivityLog) {
     });
   });
 }
+
+// --- Hardened Error Handling and Operations for Gov/NGO Support ---
+
+export enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+export interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string | null;
+    email?: string | null;
+    emailVerified?: boolean | null;
+    isAnonymous?: boolean | null;
+    tenantId?: string | null;
+    providerInfo?: {
+      providerId?: string | null;
+      email?: string | null;
+    }[];
+  }
+}
+
+export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      tenantId: auth.currentUser?.tenantId,
+      providerInfo: auth.currentUser?.providerData?.map(provider => ({
+        providerId: provider.providerId,
+        email: provider.email,
+      })) || []
+    },
+    operationType,
+    path
+  };
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
+
+/**
+ * Fetches all curated Gov/NGO support programs from Firestore.
+ */
+export async function getCuratedSupportPrograms(): Promise<any[]> {
+  const path = 'support_programs';
+  try {
+    const colRef = collection(db, path);
+    const snap = await getDocs(colRef);
+    const list: any[] = [];
+    snap.forEach((docSnap) => {
+      const data = docSnap.data();
+      list.push({
+        ...convertTimestampsToDates(data),
+        id: docSnap.id
+      });
+    });
+    return list;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.GET, path);
+    return [];
+  }
+}
+
+/**
+ * Saves a Gov/NGO support program to Firestore.
+ */
+export async function saveSupportProgram(program: any): Promise<string> {
+  const path = 'support_programs';
+  try {
+    const id = program.id || doc(collection(db, path)).id;
+    const docRef = doc(db, path, id);
+    const payload = sanitizeForFirestore({
+      ...program,
+      id,
+      updatedAt: new Date()
+    });
+    await setDoc(docRef, payload, { merge: true });
+    return id;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+    throw error;
+  }
+}
+
+/**
+ * Deletes a Gov/NGO support program from Firestore.
+ */
+export async function deleteSupportProgram(id: string): Promise<void> {
+  const path = `support_programs/${id}`;
+  try {
+    const docRef = doc(db, 'support_programs', id);
+    await deleteDoc(docRef);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
+}
+
+/**
+ * Fetches all cooperatives from Firestore.
+ */
+export async function getCooperatives(): Promise<any[]> {
+  const path = 'cooperatives';
+  try {
+    const colRef = collection(db, path);
+    const snap = await getDocs(colRef);
+    const list: any[] = [];
+    snap.forEach((docSnap) => {
+      const data = docSnap.data();
+      list.push({
+        ...convertTimestampsToDates(data),
+        id: docSnap.id
+      });
+    });
+    return list;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.GET, path);
+    return [];
+  }
+}
+
+/**
+ * Saves a cooperative to Firestore.
+ */
+export async function saveCooperative(coop: any): Promise<string> {
+  const path = 'cooperatives';
+  try {
+    const id = coop.id || doc(collection(db, path)).id;
+    const docRef = doc(db, path, id);
+    const payload = sanitizeForFirestore({
+      ...coop,
+      id,
+      updatedAt: new Date()
+    });
+    await setDoc(docRef, payload, { merge: true });
+    return id;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+    throw error;
+  }
+}
+
+/**
+ * Deletes a cooperative from Firestore.
+ */
+export async function deleteCooperative(id: string): Promise<void> {
+  const path = `cooperatives/${id}`;
+  try {
+    const docRef = doc(db, 'cooperatives', id);
+    await deleteDoc(docRef);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
+}
+
+/**
+ * Fetches all registered users on the platform for the SaaS Portal.
+ */
+export async function getAllUsers(): Promise<any[]> {
+  const path = 'users';
+  try {
+    const colRef = collection(db, path);
+    const snap = await getDocs(colRef);
+    const list: any[] = [];
+    snap.forEach((docSnap) => {
+      const data = docSnap.data();
+      list.push({
+        ...convertTimestampsToDates(data),
+        uid: docSnap.id
+      });
+    });
+    return list;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.GET, path);
+    return [];
+  }
+}
+

@@ -165,6 +165,10 @@ interface SettingsPageProps {
   userProfile: UserProfile;
   setUserProfile: React.Dispatch<React.SetStateAction<UserProfile>>;
   onAddActivity?: (text: string, icon: string) => void;
+  trialExpiresAt?: string;
+  bonusFarmLocations?: number;
+  bonusTeamMembers?: number;
+  bypassRestrictions?: boolean;
 }
 
 // Main Settings Page Component
@@ -187,8 +191,35 @@ const SettingsPage = ({
   onDeleteFarmLocation,
   userProfile,
   setUserProfile,
-  onAddActivity
+  onAddActivity,
+  trialExpiresAt = '',
+  bonusFarmLocations = 0,
+  bonusTeamMembers = 0,
+  bypassRestrictions = false
 }: SettingsPageProps) => {
+    const maxFarmsAllowed = useMemo(() => {
+        if (bypassRestrictions) return Infinity;
+        let base = 1;
+        if (currentUserPlan === 'Pro') base = 5;
+        if (currentUserPlan === 'Premium') base = Infinity;
+        return base + (bonusFarmLocations || 0);
+    }, [currentUserPlan, bypassRestrictions, bonusFarmLocations]);
+
+    const maxTeamMembersAllowed = useMemo(() => {
+        if (bypassRestrictions) return Infinity;
+        let base = 1;
+        if (currentUserPlan === 'Pro') base = 3;
+        if (currentUserPlan === 'Premium') base = Infinity;
+        return base + (bonusTeamMembers || 0);
+    }, [currentUserPlan, bypassRestrictions, bonusTeamMembers]);
+
+    const isTrialExpired = useMemo(() => {
+        if (bypassRestrictions) return false;
+        if (!trialExpiresAt) return false;
+        const expiryDate = new Date(trialExpiresAt);
+        return expiryDate < new Date();
+    }, [trialExpiresAt, bypassRestrictions]);
+
     const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
     const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
     const [memberToDelete, setMemberToDelete] = useState<TeamMember | null>(null);
@@ -287,6 +318,14 @@ const SettingsPage = ({
     };
 
     const handleAddFarm = () => {
+        if (isTrialExpired) {
+            alert('Your trial period has expired. Please upgrade your plan to continue.');
+            return;
+        }
+        if (farmLocations.length >= maxFarmsAllowed) {
+            alert(`SaaS Limit Reached: Your current plan allows up to ${maxFarmsAllowed} farm locations. Please upgrade your plan or contact your administrator.`);
+            return;
+        }
         setFarmLocations(currentFarms => [
             ...currentFarms,
             { id: Date.now(), name: '', lat: '', lon: '', size: '', unit: 'Hectares' },
@@ -348,6 +387,14 @@ const SettingsPage = ({
 
     const handleAddOrUpdateMember = (e: React.MouseEvent<HTMLButtonElement>) => {
         e.preventDefault();
+        if (isTrialExpired) {
+            alert('Your trial period has expired. Please upgrade your plan to continue.');
+            return;
+        }
+        if (!editingMemberId && teamMembers.length >= maxTeamMembersAllowed) {
+            alert(`SaaS Limit Reached: Your current plan allows up to ${maxTeamMembersAllowed} team members. Please upgrade your plan or contact your administrator.`);
+            return;
+        }
         if (!newMemberEmail.trim()) {
             alert('Please enter a team member\'s email.');
             return;
@@ -382,8 +429,15 @@ const SettingsPage = ({
             const avatarColors = ['#1E5631', '#9A3412', '#5B21B6', '#0D8ABC', '#B91C1C', '#047857', '#6D28D9'];
             const randomColor = avatarColors[Math.floor(Math.random() * avatarColors.length)];
 
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+            let randomCode = '';
+            for (let i = 0; i < 6; i++) {
+                randomCode += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            const generatedId = `TAP${randomCode}`;
+
             const newMember: TeamMember = {
-                id: `user-${Date.now()}`,
+                id: generatedId,
                 email: newMemberEmail,
                 role: newMemberRole,
                 permissions: newMemberPermissions,
@@ -617,7 +671,7 @@ const SettingsPage = ({
                     onToggle={() => toggleSection('Subscription & Billing')}
                 >
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                        <div>
+                        <div className="space-y-2 w-full">
                             <p className="font-semibold text-gray-800">Your Current Plan: <span className="text-blue-600 font-bold">{currentUserPlan}</span></p>
                             {currentUserPlan !== 'Premium' && (
                                 <p className="text-sm text-gray-500 mt-1">You are on the {currentUserPlan} plan. Upgrade to unlock more features.</p>
@@ -625,8 +679,39 @@ const SettingsPage = ({
                             {currentUserPlan === 'Premium' && (
                                 <p className="text-sm text-gray-500 mt-1">You have access to all features. Thank you!</p>
                             )}
+                            
+                            <div className="mt-4 pt-4 border-t border-gray-100 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                                <div className="bg-slate-50 p-3 rounded-lg">
+                                    <p className="font-bold text-gray-700 uppercase tracking-wider text-[10px] mb-1">Resource Capacity</p>
+                                    <p className="text-gray-600">
+                                        🚜 Farm Locations: <strong className="text-gray-900">{farmLocations.length} / {maxFarmsAllowed === Infinity ? 'Unlimited' : maxFarmsAllowed}</strong>
+                                        {bonusFarmLocations > 0 && <span className="text-green-600 ml-1 font-semibold">(+{bonusFarmLocations} Bonus)</span>}
+                                    </p>
+                                    <p className="text-gray-600 mt-1">
+                                        👥 Team Members: <strong className="text-gray-900">{teamMembers.length} / {maxTeamMembersAllowed === Infinity ? 'Unlimited' : maxTeamMembersAllowed}</strong>
+                                        {bonusTeamMembers > 0 && <span className="text-green-600 ml-1 font-semibold">(+{bonusTeamMembers} Bonus)</span>}
+                                    </p>
+                                </div>
+                                
+                                <div className="bg-slate-50 p-3 rounded-lg">
+                                    <p className="font-bold text-gray-700 uppercase tracking-wider text-[10px] mb-1">Administrative Overrides</p>
+                                    {bypassRestrictions ? (
+                                        <p className="text-amber-700 font-bold flex items-center gap-1">
+                                            <span>🌟 Premium Bypass Enabled</span>
+                                        </p>
+                                    ) : (
+                                        <p className="text-gray-600">No active restrict-bypass overrides</p>
+                                    )}
+                                    {trialExpiresAt && (
+                                        <p className="text-gray-600 mt-1">
+                                            ⏳ Trial Expires: <strong className={isTrialExpired ? "text-red-600" : "text-gray-900"}>{trialExpiresAt}</strong>
+                                            {isTrialExpired && <span className="text-red-600 font-bold ml-1">(Expired)</span>}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
                         </div>
-                        {currentUserPlan !== 'Premium' && (
+                        {currentUserPlan !== 'Premium' && !bypassRestrictions && (
                              <button 
                                 onClick={onUpgradePlan}
                                 className="flex items-center space-x-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white px-4 py-2 rounded-lg font-semibold hover:from-amber-600 hover:to-orange-600 transition-colors shadow-md text-sm flex-shrink-0"
@@ -693,18 +778,29 @@ const SettingsPage = ({
                                             <img src={member.avatar} alt={member.email} className="w-10 h-10 rounded-full object-cover"/>
                                             <div>
                                                 <p className="font-semibold text-gray-800 flex items-center gap-2">{member.email} {getStatusBadge(member.status)}</p>
-                                                <p className="text-sm text-gray-500">
-                                                    {member.role}
+                                                <div className="flex flex-wrap items-center gap-2 text-sm text-gray-500 mt-0.5">
+                                                    <span className="font-medium text-gray-700">{member.role}</span>
+                                                    <span className="text-gray-300">|</span>
+                                                    <span className="font-mono text-xs text-[#1E5631] bg-green-50 px-1.5 py-0.5 rounded border border-green-100 flex items-center gap-1">
+                                                        <span className="material-icons-outlined text-[10px]">key</span>
+                                                        <span>ID: {member.id}</span>
+                                                    </span>
                                                     {member.farmId && farmLocationMap.get(member.farmId) ? (
-                                                        <span className="ml-2 pl-2 border-l border-gray-300 font-normal">
-                                                            {farmLocationMap.get(member.farmId)}
-                                                        </span>
+                                                        <>
+                                                            <span className="text-gray-300">|</span>
+                                                            <span className="font-normal text-xs text-gray-500">
+                                                                {farmLocationMap.get(member.farmId)}
+                                                            </span>
+                                                        </>
                                                     ) : !member.farmId && (
-                                                        <span className="ml-2 pl-2 border-l border-gray-300 font-normal">
-                                                            Global Access
-                                                        </span>
+                                                        <>
+                                                            <span className="text-gray-300">|</span>
+                                                            <span className="font-normal text-xs text-gray-500">
+                                                                Global Access
+                                                            </span>
+                                                        </>
                                                     )}
-                                                </p>
+                                                </div>
                                             </div>
                                         </div>
                                          <div className="flex items-center space-x-2 flex-shrink-0 self-end sm:self-center">

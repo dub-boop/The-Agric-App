@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc, getDocFromCache } from 'firebase/firestore';
 import { auth, db } from './firebase';
@@ -22,6 +22,8 @@ import AuthPage from './components/AuthPage';
 import PrivacyPolicyPage from './components/PrivacyPolicyPage';
 import TermsOfServicePage from './components/TermsOfServicePage';
 import PaymentPage from './components/PaymentPage';
+import AdminCurationPage from './components/AdminCurationPage';
+import CooperativesPage from './components/CooperativesPage';
 import { PENDING_DOCUMENTS_DATA, REJECTED_DATA, BUSINESS_PROFILE_DATA, USER_PROFILE_DATA, TEAM_MEMBERS_DATA, GLOBAL_ACTIVITY_LOG, HEALTH_EVENTS, LIVESTOCK_DATA, CROP_PLANS, LIVESTOCK_TASKS, INPUT_INVENTORY_DATA, TOOLS_EQUIPMENT_DATA, BREEDING_RECORDS } from './constants';
 import type { ActivityLog, FinancialDocument, RejectedFinancialDocument, BusinessProfile, UserProfile, FarmLocation, Payment, TeamMember, HealthEvent, LivestockRecord, CropPlan, LivestockTask, InputInventoryItem, ToolEquipmentItem, BreedingRecord, CroppingActivity } from './types';
 
@@ -33,7 +35,7 @@ const INITIAL_FARM_LOCATIONS: FarmLocation[] = [
 ];
 
 function App() {
-  const [appState, setAppState] = useState<'landing' | 'auth' | 'payment' | 'onboarding' | 'dashboard' | 'privacy' | 'terms'>('landing');
+  const [appState, setAppState] = useState<'landing' | 'auth' | 'payment' | 'onboarding' | 'dashboard' | 'privacy' | 'terms' | 'admin-curation'>('landing');
   const [selectedPlan, setSelectedPlan] = useState<'Starter' | 'Pro' | 'Premium'>('Starter');
   const [isNewUser, setIsNewUser] = useState<boolean>(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -51,6 +53,10 @@ function App() {
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>(TEAM_MEMBERS_DATA);
   const [selectedLocationId, setSelectedLocationId] = useState<number | 'all'>('all');
   const [currentUserPlan, setCurrentUserPlan] = useState<'Starter' | 'Pro' | 'Premium'>('Starter');
+  const [trialExpiresAt, setTrialExpiresAt] = useState<string>('');
+  const [bonusFarmLocations, setBonusFarmLocations] = useState<number>(0);
+  const [bonusTeamMembers, setBonusTeamMembers] = useState<number>(0);
+  const [bypassRestrictions, setBypassRestrictions] = useState<boolean>(false);
   const [healthEvents, setHealthEvents] = useState<HealthEvent[]>(HEALTH_EVENTS);
   const [animals, setAnimals] = useState<LivestockRecord[]>(LIVESTOCK_DATA);
   const [cropPlans, setCropPlans] = useState<CropPlan[]>(CROP_PLANS);
@@ -63,15 +69,24 @@ function App() {
   
   const [currentUserAuth, setCurrentUserAuth] = useState<any>(null);
   const [loadingData, setLoadingData] = useState(true);
+  const loadedUidRef = useRef<string | null>(null);
 
   // Listen to Auth State
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUserAuth(user);
       if (user) {
+        const impersonatedUid = localStorage.getItem('admin_impersonated_uid');
+        const targetUid = impersonatedUid || user.uid;
+
+        if (loadedUidRef.current === targetUid) {
+          // Same user (e.g. token refresh or impersonated target matches). Keep the current session.
+          return;
+        }
+        loadedUidRef.current = targetUid;
         setLoadingData(true);
         try {
-          const userDocRef = doc(db, 'users', user.uid);
+          const userDocRef = doc(db, 'users', targetUid);
           let docSnap;
           try {
             docSnap = await getDoc(userDocRef);
@@ -108,6 +123,10 @@ function App() {
             if (data.farmLocations) setFarmLocations(data.farmLocations);
             if (data.teamMembers) setTeamMembers(data.teamMembers);
             if (data.currentUserPlan) setCurrentUserPlan(data.currentUserPlan);
+            if (data.trialExpiresAt !== undefined) setTrialExpiresAt(data.trialExpiresAt);
+            if (data.bonusFarmLocations !== undefined) setBonusFarmLocations(Number(data.bonusFarmLocations));
+            if (data.bonusTeamMembers !== undefined) setBonusTeamMembers(Number(data.bonusTeamMembers));
+            if (data.bypassRestrictions !== undefined) setBypassRestrictions(!!data.bypassRestrictions);
             if (data.healthEvents) setHealthEvents(data.healthEvents);
             if (data.animals) setAnimals(data.animals);
             if (data.cropPlans) setCropPlans(data.cropPlans);
@@ -127,25 +146,22 @@ function App() {
             }
             
             const loadedPlan = data.currentUserPlan || 'Starter';
-            if ((selectedPlan === 'Pro' || selectedPlan === 'Premium') && loadedPlan === 'Starter') {
-              setIsNewUser(false);
-              setAppState('payment');
-            } else {
-              setAppState('dashboard');
-            }
+            setCurrentUserPlan(loadedPlan);
+            setAppState('dashboard');
           } else {
             // Document doesn't exist yet, we'll create it upon first state change or onboarding completion
+            setTrialExpiresAt('');
+            setBonusFarmLocations(0);
+            setBonusTeamMembers(0);
+            setBypassRestrictions(false);
             setUserProfile(prev => ({ 
               ...prev, 
               email: user.email || '',
               name: user.displayName || prev.name || ''
             }));
             setIsNewUser(true);
-            if (selectedPlan === 'Pro' || selectedPlan === 'Premium') {
-              setAppState('payment');
-            } else {
-              setAppState('onboarding');
-            }
+            setCurrentUserPlan('Starter'); // The default tier for every new sign-up is the Starter tier
+            setAppState('onboarding'); // Skip payment block during initialization; go straight to onboarding wizard
           }
         } catch (err: any) {
           const isOffline = err && (
@@ -170,6 +186,7 @@ function App() {
           setLoadingData(false);
         }
       } else {
+        loadedUidRef.current = null;
         setLoadingData(false);
         // If logged out, only redirect to landing from private sections
         setAppState(prev => (prev === 'dashboard' || prev === 'onboarding') ? 'landing' : prev);
@@ -178,15 +195,72 @@ function App() {
     return () => unsubscribe();
   }, []);
 
+  // Ensure the current user is always represented as a team member so they have a Unique ID
+  useEffect(() => {
+    if (!userProfile.email || loadingData) return;
+    const emailLower = userProfile.email.toLowerCase();
+    const hasMember = teamMembers.some(m => m.email.toLowerCase() === emailLower);
+    if (!hasMember) {
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      let randomCode = '';
+      for (let i = 0; i < 6; i++) {
+        randomCode += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      const generatedId = `TAP${randomCode}`;
+      const newMember: TeamMember = {
+        id: generatedId,
+        email: userProfile.email,
+        role: (userProfile.role as any) || 'Farm Manager',
+        permissions: teamMembers[0]?.permissions || ['Farm House', 'Farm Records', 'Cropping Planner', 'Livestock Planner', 'Store Management', 'Receipt Generator', 'User Profile', 'Weather', 'Talk to Farmr', 'Gov/NGO Support', 'Settings'],
+        avatar: userProfile.avatar || '',
+        status: 'Active',
+      };
+      setTeamMembers(prev => [...prev, newMember]);
+    }
+  }, [userProfile.email, loadingData, teamMembers]);
+
+  // Migrate any old 'user-' IDs in teamMembers to the new 'TAP' format on-the-fly
+  useEffect(() => {
+    if (loadingData || !teamMembers || teamMembers.length === 0) return;
+    
+    const hasOldId = teamMembers.some(m => m.id && (m.id.toLowerCase().startsWith('user-') || m.id.toLowerCase() === 'user'));
+    if (hasOldId) {
+      const updatedMembers = teamMembers.map(member => {
+        if (member.id && (member.id.toLowerCase().startsWith('user-') || member.id.toLowerCase() === 'user')) {
+          const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+          let randomCode = '';
+          for (let i = 0; i < 6; i++) {
+            randomCode += chars.charAt(Math.floor(Math.random() * chars.length));
+          }
+          return {
+            ...member,
+            id: `TAP${randomCode}`
+          };
+        }
+        return member;
+      });
+      setTeamMembers(updatedMembers);
+    }
+  }, [loadingData, teamMembers]);
+
   // Debounced auto-save to Firestore when any state updates
   useEffect(() => {
     if (!currentUserAuth || loadingData) return;
 
+    const isViewOnly = localStorage.getItem('admin_impersonation_mode') === 'view-only';
+    if (isViewOnly) {
+      console.log("Impersonation view-only active: Auto-save disabled.");
+      return;
+    }
+
+    const impersonatedUid = localStorage.getItem('admin_impersonated_uid');
+    const targetUid = impersonatedUid || currentUserAuth.uid;
+
     const timeoutId = setTimeout(async () => {
       try {
-        const userDocRef = doc(db, 'users', currentUserAuth.uid);
+        const userDocRef = doc(db, 'users', targetUid);
         const payload = sanitizeForFirestore({
-          email: currentUserAuth.email || '',
+          email: impersonatedUid ? (localStorage.getItem('admin_impersonated_email') || '') : (currentUserAuth.email || ''),
           selectedCrops,
           selectedLivestock,
           pendingDocuments,
@@ -198,6 +272,10 @@ function App() {
           farmLocations,
           teamMembers,
           currentUserPlan,
+          trialExpiresAt,
+          bonusFarmLocations,
+          bonusTeamMembers,
+          bypassRestrictions,
           healthEvents,
           animals,
           cropPlans,
@@ -210,6 +288,17 @@ function App() {
           updatedAt: new Date()
         });
         await setDoc(userDocRef, payload, { merge: true });
+
+        // Save unique ID mappings for team members in Firestore
+        if (teamMembers && Array.isArray(teamMembers)) {
+          for (const member of teamMembers) {
+            if (member.id && member.email) {
+              const mappingRef = doc(db, 'unique_ids', member.id.toLowerCase());
+              await setDoc(mappingRef, { email: member.email.toLowerCase(), role: member.role }, { merge: true });
+            }
+          }
+        }
+
         console.log("Farm state auto-saved to Firestore.");
       } catch (err: any) {
         const isOffline = err && (
@@ -240,6 +329,10 @@ function App() {
     farmLocations,
     teamMembers,
     currentUserPlan,
+    trialExpiresAt,
+    bonusFarmLocations,
+    bonusTeamMembers,
+    bypassRestrictions,
     healthEvents,
     animals,
     cropPlans,
@@ -404,6 +497,10 @@ function App() {
                   userProfile={userProfile}
                   setUserProfile={setUserProfile}
                   onAddActivity={addActivityLog}
+                  trialExpiresAt={trialExpiresAt}
+                  bonusFarmLocations={bonusFarmLocations}
+                  bonusTeamMembers={bonusTeamMembers}
+                  bypassRestrictions={bypassRestrictions}
                 />;
       case 'Farm Records':
         return <FarmRecordsPage 
@@ -494,6 +591,7 @@ function App() {
                   toolsEquipment={toolsEquipment}
                   breedingRecords={breedingRecords}
                   farmLocations={farmLocations}
+                  teamMembers={teamMembers}
                 />;
       case 'Weather':
         return <WeatherPage
@@ -508,8 +606,11 @@ function App() {
         return <GovNgoSupportPage
                   setSidebarOpen={setSidebarOpen}
                 />;
-      case 'Farm House':
       case 'Cooperatives':
+        return <CooperativesPage 
+                  setSidebarOpen={setSidebarOpen} 
+               />;
+      case 'Farm House':
       default:
         return <Dashboard 
                   setSidebarOpen={setSidebarOpen} 
@@ -550,7 +651,12 @@ function App() {
               }}
               onNavigateToPrivacy={() => setAppState('privacy')}
               onNavigateToTerms={() => setAppState('terms')}
+              onNavigateToAdminCuration={() => setAppState('admin-curation')}
            />;
+  }
+  
+  if (appState === 'admin-curation') {
+    return <AdminCurationPage onBack={() => setAppState('landing')} />;
   }
   
   if (appState === 'privacy') {
@@ -605,25 +711,61 @@ function App() {
       );
   }
 
+  const isImpersonating = !!localStorage.getItem('admin_impersonated_uid');
+  const impersonatedEmail = localStorage.getItem('admin_impersonated_email') || 'Unknown User';
+  const impersonationMode = localStorage.getItem('admin_impersonation_mode') || 'view-only';
+
+  const handleStopImpersonation = () => {
+    localStorage.removeItem('admin_impersonated_uid');
+    localStorage.removeItem('admin_impersonated_email');
+    localStorage.removeItem('admin_impersonation_mode');
+    window.location.reload();
+  };
+
   return (
-    <div className="relative flex w-full h-screen bg-slate-100 font-sans overflow-hidden">
-      {/* Overlay for mobile */}
-      {sidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden"
-          onClick={() => setSidebarOpen(false)}
-          aria-hidden="true"
-        ></div>
+    <div className="relative flex flex-col w-full h-screen bg-slate-100 font-sans overflow-hidden">
+      {isImpersonating && (
+        <div className="bg-amber-600 text-white px-4 py-2 text-xs md:text-sm font-bold flex flex-wrap items-center justify-between gap-2 z-50 shadow-md flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <span className="animate-pulse">🕵️</span>
+            <span>Platform Administrator Impersonating: <strong className="underline">{impersonatedEmail}</strong></span>
+            <span className={`px-2 py-0.5 rounded text-[10px] uppercase tracking-wider font-extrabold ${
+              impersonationMode === 'view-only' ? 'bg-red-700' : 'bg-green-700'
+            }`}>
+              {impersonationMode === 'view-only' ? 'VIEW ONLY DIAGNOSTICS' : 'FULL EDIT ACCESS'}
+            </span>
+            {impersonationMode === 'view-only' && (
+              <span className="text-[10.5px] text-amber-100 font-normal hidden lg:inline">(Database changes will not be saved)</span>
+            )}
+          </div>
+          <button 
+            onClick={handleStopImpersonation} 
+            className="bg-white hover:bg-amber-50 text-amber-800 font-extrabold text-xs px-3 py-1.5 rounded-lg transition-colors cursor-pointer border-0"
+          >
+            Exit Session & Return to Admin Portal
+          </button>
+        </div>
       )}
-      <Sidebar 
-        isOpen={sidebarOpen} 
-        setIsOpen={setSidebarOpen} 
-        activePage={activePage}
-        setActivePage={setActivePage}
-        currentUser={currentUser}
-        onGoToLanding={() => setAppState('landing')}
-      />
-      {renderPage()}
+      
+      <div className="relative flex flex-grow w-full h-full overflow-hidden">
+        {/* Overlay for mobile */}
+        {sidebarOpen && (
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden"
+            onClick={() => setSidebarOpen(false)}
+            aria-hidden="true"
+          ></div>
+        )}
+        <Sidebar 
+          isOpen={sidebarOpen} 
+          setIsOpen={setSidebarOpen} 
+          activePage={activePage}
+          setActivePage={setActivePage}
+          currentUser={currentUser}
+          onGoToLanding={() => setAppState('landing')}
+        />
+        {renderPage()}
+      </div>
       
       <UpgradeModal 
         isOpen={isUpgradeModalOpen} 

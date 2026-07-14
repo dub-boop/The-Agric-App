@@ -390,4 +390,21 @@ export interface SupportProgram {
   eligibility: string[];
   requiredDocuments: string[];
   applyLink: string;
+  location: string;
+}
+
+// --- Cooperative Types ---
+export type CooperativeType = 'Resource-Sharing' | 'Joint Marketing' | 'Financial/Credit' | 'Purchasing';
+
+export interface Cooperative {
+  id: string;
+  name: string;
+  type: CooperativeType;
+  location: string;
+  contactEmail: string;
+  presidentPhone: string; // Phone number of the president
+  activeMembers: number;
+  sharedEquipment: string[];
+  description: string;
+  status?: 'Pending' | 'Live';
 }

@@ -7,7 +7,8 @@ import {
     signInWithPopup, 
     linkWithCredential 
 } from 'firebase/auth';
-import { auth } from '../firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import { auth, db } from '../firebase';
 
 const AuthPage = ({ onLogin, onSignUp, onAcceptInvitation, onGoToLanding }: { onLogin: () => void; onSignUp: () => void; onAcceptInvitation: (email: string) => void; onGoToLanding?: () => void; }) => {
     const [authMode, setAuthMode] = useState<'login' | 'signup' | 'verify' | 'accept_invite' | 'link_account'>('login');
@@ -51,17 +52,47 @@ const AuthPage = ({ onLogin, onSignUp, onAcceptInvitation, onGoToLanding }: { on
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
+        
+        let resolvedEmail = email.trim();
+        if (!resolvedEmail.includes('@')) {
+            const lowercaseId = resolvedEmail.toLowerCase();
+            const LOCAL_UNIQUE_ID_MAP: Record<string, string> = {
+                'tap982101': 'john.doe@greenvalley.com',
+                'tap439102': 'jane.smith@greenvalley.com',
+                'tap712103': 'new.user@example.com',
+            };
+            
+            if (LOCAL_UNIQUE_ID_MAP[lowercaseId]) {
+                resolvedEmail = LOCAL_UNIQUE_ID_MAP[lowercaseId];
+            } else {
+                try {
+                    const docRef = doc(db, 'unique_ids', lowercaseId);
+                    const docSnap = await getDoc(docRef);
+                    if (docSnap.exists() && docSnap.data()?.email) {
+                        resolvedEmail = docSnap.data().email;
+                    } else {
+                        setError('Could not find any account associated with that Unique ID.');
+                        return;
+                    }
+                } catch (lookupErr: any) {
+                    console.error("Unique ID mapping lookup error:", lookupErr);
+                    setError('Could not find any account associated with that Unique ID.');
+                    return;
+                }
+            }
+        }
+
         try {
-            await signInWithEmailAndPassword(auth, email, password);
+            await signInWithEmailAndPassword(auth, resolvedEmail, password);
             onLogin();
         } catch (err: any) {
             console.error(err);
             if (err.code === 'auth/operation-not-allowed') {
                 setError("Email/Password authentication is currently unavailable. Please contact the administrator or system support.");
             } else if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
-                setError('Invalid email or password. Please try again.');
+                setError('Invalid email/ID or password. Please try again.');
             } else if (err.code === 'auth/invalid-email') {
-                setError('Please enter a valid email address.');
+                setError('Please enter a valid email address or Unique ID.');
             } else {
                 setError(err.message || 'An error occurred during log in.');
             }
@@ -137,6 +168,8 @@ const AuthPage = ({ onLogin, onSignUp, onAcceptInvitation, onGoToLanding }: { on
                 setError("Google sign-in popup was closed or cancelled. Please try again, or open the application in a new tab if you are using an embedded frame.");
             } else if (err.code === 'auth/popup-blocked') {
                 setError("Google sign-in popup was blocked by your browser. Please allow popups for this site, or open the application in a new browser tab to sign in.");
+            } else if (err.code === 'auth/unauthorized-domain') {
+                setError("This domain is not authorized for Google Sign-In. Please add this website's domain to the authorized domains list in your Firebase configuration, or use email and password authentication instead.");
             } else if (err.code === 'auth/account-exists-with-different-credential') {
                 const pendingCred = GoogleAuthProvider.credentialFromError(err);
                 const emailVal = err.customData?.email || '';
@@ -355,8 +388,8 @@ const AuthPage = ({ onLogin, onSignUp, onAcceptInvitation, onGoToLanding }: { on
                          <form onSubmit={handleLogin} className="space-y-6">
                             <h2 className="text-2xl font-bold text-center text-gray-800">Welcome Back!</h2>
                             <div>
-                                <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email Address</label>
-                                <input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} className={`${inputClasses} mt-1`} required />
+                                <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email Address or Unique ID</label>
+                                <input id="email" type="text" value={email} onChange={e => setEmail(e.target.value)} className={`${inputClasses} mt-1`} required placeholder="e.g. TAP982101 or john.doe@greenvalley.com" />
                             </div>
                             <div>
                                 <label htmlFor="password" className="block text-sm font-medium text-gray-700">Password</label>

@@ -113,7 +113,7 @@ const TestimonialCard = ({ quote, name, role, avatar }: { quote: string, name: s
 
 // --- MAIN LANDING PAGE COMPONENT ---
 
-const LandingPage = ({ onStartTrial, onNavigateToPrivacy, onNavigateToTerms }: { onStartTrial: (plan?: 'Starter' | 'Pro' | 'Premium') => void; onNavigateToPrivacy: () => void; onNavigateToTerms: () => void; }) => {
+const LandingPage = ({ onStartTrial, onNavigateToPrivacy, onNavigateToTerms, onNavigateToAdminCuration }: { onStartTrial: (plan?: 'Starter' | 'Pro' | 'Premium') => void; onNavigateToPrivacy: () => void; onNavigateToTerms: () => void; onNavigateToAdminCuration: () => void; }) => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isScrolled, setIsScrolled] = useState(false);
     
@@ -456,6 +456,7 @@ const LandingPage = ({ onStartTrial, onNavigateToPrivacy, onNavigateToTerms }: {
                             <ul className="space-y-2 text-sm text-gray-300">
                                 <li><a href="#" onClick={(e) => { e.preventDefault(); onNavigateToPrivacy(); }} className="hover:text-white">Privacy Policy</a></li>
                                 <li><a href="#" onClick={(e) => { e.preventDefault(); onNavigateToTerms(); }} className="hover:text-white">Terms of Service</a></li>
+                                <li><a href="#" onClick={(e) => { e.preventDefault(); onNavigateToAdminCuration(); }} className="hover:text-white">Builder Login</a></li>
                             </ul>
                         </div>
                         <div>

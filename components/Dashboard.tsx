@@ -85,19 +85,22 @@ const DataWidget = ({ title, value, unit, icon }: { title: string, value: string
 
 // --- Components ---
 
-const ToolCard = ({ item, onClick, notificationCount }: { item: ToolItem, onClick?: () => void, notificationCount?: number }) => (
+const ToolCard = ({ item, onClick, notificationCount, disabled }: { item: ToolItem, onClick?: () => void, notificationCount?: number, disabled?: boolean }) => (
     <button 
         onClick={onClick}
-        className={`relative ${item.color} text-white p-4 rounded-xl flex flex-col items-center justify-center w-full h-full aspect-[4/3] min-h-[110px] sm:min-h-[120px] transform hover:scale-105 transition-transform duration-200 shadow-lg hover:shadow-xl disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-md`}
-        disabled={!onClick}
+        className={`relative ${disabled ? 'bg-gray-200 text-gray-400 border border-gray-300' : item.color + ' text-white hover:scale-105 shadow-lg hover:shadow-xl'} p-4 rounded-xl flex flex-col items-center justify-center w-full h-full aspect-[4/3] min-h-[110px] sm:min-h-[120px] transition-transform duration-200 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-md`}
+        disabled={disabled || !onClick}
     >
-        {notificationCount && notificationCount > 0 && (
+        {notificationCount && notificationCount > 0 && !disabled && (
             <div className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center border-2 border-white">
                 {notificationCount}
             </div>
         )}
-        <div className="mb-2">{item.icon}</div>
+        <div className={`mb-2 ${disabled ? 'opacity-40 grayscale' : ''}`}>{item.icon}</div>
         <span className="text-sm font-semibold text-center leading-tight">{item.name}</span>
+        {disabled && (
+            <span className="absolute top-2 right-2 text-gray-400 material-icons-outlined text-xs">lock</span>
+        )}
     </button>
 );
 
@@ -237,10 +240,6 @@ const Dashboard = ({ setSidebarOpen, setActivePage, userProfile, farmLocations, 
         return healthEvents.filter(event => new Date(event.date) > today).length;
     }, [healthEvents]);
 
-    const accessibleToolItems = useMemo(() => {
-        return TOOL_ITEMS.filter(item => currentUser.permissions.includes(item.name));
-    }, [currentUser]);
-
     const handleToolClick = (toolName: string) => {
         if (['Farm Records', 'Cropping Planner', 'Livestock Planner', 'Store Management', 'Receipt Generator', 'User Profile', 'Talk to Farmr', 'Gov/NGO Support'].includes(toolName)) {
             setActivePage(toolName);
@@ -290,22 +289,26 @@ const Dashboard = ({ setSidebarOpen, setActivePage, userProfile, farmLocations, 
       <section>
         <h3 className="text-2xl font-bold text-gray-700 mb-6">Tools</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-          {accessibleToolItems.map((item: ToolItem) => {
+          {TOOL_ITEMS.map((item: ToolItem) => {
+            const hasAccess = currentUser.permissions.includes(item.name);
             let notificationCount = 0;
-            if (item.name === 'Store Management') {
-                notificationCount = pendingDocuments.length;
-            } else if (item.name === 'Receipt Generator') {
-                notificationCount = rejectedDocuments.length;
-            } else if (item.name === 'Livestock Planner') {
-                notificationCount = livestockNotificationCount;
+            if (hasAccess) {
+                if (item.name === 'Store Management') {
+                    notificationCount = pendingDocuments.length;
+                } else if (item.name === 'Receipt Generator') {
+                    notificationCount = rejectedDocuments.length;
+                } else if (item.name === 'Livestock Planner') {
+                    notificationCount = livestockNotificationCount;
+                }
             }
 
             return (
                 <React.Fragment key={item.name}>
                 <ToolCard 
                     item={item} 
-                    onClick={['Farm Records', 'Cropping Planner', 'Livestock Planner', 'Store Management', 'Receipt Generator', 'Talk to Farmr', 'Gov/NGO Support'].includes(item.name) ? () => handleToolClick(item.name) : undefined}
+                    onClick={hasAccess && ['Farm Records', 'Cropping Planner', 'Livestock Planner', 'Store Management', 'Receipt Generator', 'Talk to Farmr', 'Gov/NGO Support'].includes(item.name) ? () => handleToolClick(item.name) : undefined}
                     notificationCount={notificationCount}
+                    disabled={!hasAccess}
                 />
                 </React.Fragment>
             );

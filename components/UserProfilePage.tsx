@@ -37,6 +37,36 @@ const formatRelativeTime = (date: Date): string => {
     return `${Math.floor(seconds)} seconds ago`;
 };
 
+const getProfileForMember = (member: TeamMember, defaultUserProfile: UserProfile): UserProfile => {
+    if (member.email.toLowerCase() === defaultUserProfile.email.toLowerCase()) {
+        return defaultUserProfile;
+    }
+    // Parse name from email
+    let name = "Team Member";
+    if (member.email) {
+        const part = member.email.split('@')[0];
+        name = part.split('.').map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ');
+    }
+    
+    // Fallback for known defaults
+    if (member.email === 'jane.smith@greenvalley.com') {
+        name = 'Jane Smith';
+    } else if (member.email === 'john.doe@greenvalley.com') {
+        name = 'John Doe';
+    } else if (member.email === 'new.user@example.com') {
+        name = 'New User';
+    }
+    
+    return {
+        name: name,
+        role: member.role,
+        email: member.email,
+        phone: member.role === 'Accountant' ? '08099999999' : '08077777777',
+        avatar: member.avatar,
+        bio: `${name} is an active ${member.role} at Green Valley Farms, contributing to farm development and operations.`
+    };
+};
+
 
 // Reusable Components
 const InfoCard = ({ title, children }: { title: string, children?: React.ReactNode }) => (
@@ -155,6 +185,7 @@ interface UserProfilePageProps {
     toolsEquipment: ToolEquipmentItem[];
     breedingRecords: BreedingRecord[];
     farmLocations: FarmLocation[];
+    teamMembers: TeamMember[];
 }
 
 const UserProfilePage = ({ 
@@ -175,19 +206,37 @@ const UserProfilePage = ({
     toolsEquipment,
     breedingRecords,
     farmLocations,
+    teamMembers = [],
 }: UserProfilePageProps) => {
+    const [selectedMemberEmail, setSelectedMemberEmail] = useState<string>(currentUser?.email || '');
     const [isEditing, setIsEditing] = useState(false);
-    const [formData, setFormData] = useState<UserProfile>(userProfile);
+
+    // Sync selected member if currentUser changes
+    useEffect(() => {
+        if (currentUser?.email) {
+            setSelectedMemberEmail(currentUser.email);
+        }
+    }, [currentUser]);
+
+    const selectedMember = useMemo(() => {
+        return (teamMembers || []).find(m => m.email.toLowerCase() === selectedMemberEmail.toLowerCase()) || currentUser;
+    }, [teamMembers, selectedMemberEmail, currentUser]);
+
+    const displayedProfile = useMemo(() => {
+        return getProfileForMember(selectedMember, userProfile);
+    }, [selectedMember, userProfile]);
+
+    const [formData, setFormData] = useState<UserProfile>(displayedProfile);
     const [isGenerating, setIsGenerating] = useState(false);
     const shareableProfileRef = useRef<HTMLDivElement>(null);
 
-    // Sync form data when editing starts or profile data changes
+    // Sync form data when editing starts or displayedProfile changes
     useEffect(() => {
-        setFormData(userProfile);
-    }, [userProfile, isEditing]);
+        setFormData(displayedProfile);
+    }, [displayedProfile, isEditing]);
 
     const activityStats: ActivityStat[] = useMemo(() => {
-        const role = userProfile.role;
+        const role = displayedProfile.role;
 
         // Common calculations
         const totalLivestockCount = animals.reduce((acc, animal) => {
@@ -274,19 +323,19 @@ const UserProfilePage = ({
                     { title: "Farm Size", value: `${totalFarmSizeDefault.toFixed(2)} Ha`, icon: <LocationMarkerIcon className="h-8 w-8 text-amber-700" />, color: "bg-amber-100" }
                 ];
         }
-    }, [userProfile.role, incomeRecords, expenditureRecords, animals, healthEvents, cropPlans, livestockTasks, croppingActivities, inputsInventory, toolsEquipment, breedingRecords, farmLocations]);
+    }, [displayedProfile.role, incomeRecords, expenditureRecords, animals, healthEvents, cropPlans, livestockTasks, croppingActivities, inputsInventory, toolsEquipment, breedingRecords, farmLocations]);
 
     const userActivity = useMemo(() => {
         const oneMonthAgo = new Date();
         oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
 
-        if (!currentUser || !activityLog) return [];
+        if (!selectedMember || !activityLog) return [];
 
         return activityLog
-            .filter(log => log.userId === currentUser.id && log.date >= oneMonthAgo)
+            .filter(log => log.userId === selectedMember.id && log.date >= oneMonthAgo)
             .sort((a, b) => b.date.getTime() - a.date.getTime())
             .slice(0, 50);
-    }, [activityLog, currentUser]);
+    }, [activityLog, selectedMember]);
 
     const handleEditToggle = () => {
         setIsEditing(prev => !prev);
@@ -350,11 +399,39 @@ const UserProfilePage = ({
                 </button>
             </header>
 
+            {currentUser?.role === 'Farm Manager' && (
+                <div className="mb-6 bg-white p-4 rounded-xl shadow-md flex flex-col sm:flex-row items-center justify-between gap-4 border border-gray-200">
+                    <div className="flex items-center space-x-3">
+                        <span className="material-icons-outlined text-[#1E5631] text-2xl">groups</span>
+                        <div>
+                            <h4 className="font-bold text-gray-800 text-sm sm:text-base">Team Performance Tracking</h4>
+                            <p className="text-xs text-gray-500">Select a team member to analyze their role-based metrics and logs.</p>
+                        </div>
+                    </div>
+                    <div className="w-full sm:w-72">
+                        <select
+                            value={selectedMemberEmail}
+                            onChange={(e) => setSelectedMemberEmail(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-700 bg-gray-50 h-[40px] font-medium text-sm"
+                        >
+                            {teamMembers.map(member => {
+                                const mProfile = getProfileForMember(member, userProfile);
+                                return (
+                                    <option key={member.id} value={member.email}>
+                                        {mProfile.name} ({member.role})
+                                    </option>
+                                );
+                            })}
+                        </select>
+                    </div>
+                </div>
+            )}
+
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Left Column */}
                 <div className="lg:col-span-2 space-y-8">
                     {/* Profile Header */}
-                    <div className="bg-white p-6 rounded-xl shadow-md flex flex-col sm:flex-row items-center gap-6">
+                    <div className="bg-white p-6 rounded-xl shadow-md flex flex-col lg:flex-row items-center justify-between gap-6">
                         <div className="relative flex-shrink-0">
                             <img src={formData.avatar} alt="User Avatar" className="w-32 h-32 rounded-full object-cover border-4 border-white shadow-lg" />
                             {isEditing && (
@@ -364,40 +441,49 @@ const UserProfilePage = ({
                                 </label>
                             )}
                         </div>
-                        <div className="flex-grow text-center sm:text-left">
+                        <div className="flex-grow text-center lg:text-left">
                             {isEditing ? (
                                 <input type="text" name="name" value={formData.name} onChange={handleChange} className={`${inputClasses} text-2xl font-bold`} />
                             ) : (
-                                <h3 className="text-2xl md:text-3xl font-bold text-gray-800">{userProfile.name}</h3>
+                                <h3 className="text-2xl md:text-3xl font-bold text-gray-800">{displayedProfile.name}</h3>
                             )}
                              <div className="mt-1">
                                 {isEditing ? (
                                      <input type="text" name="role" value={formData.role} readOnly className={`${inputClasses} bg-gray-200 cursor-not-allowed`} title="Role is managed by administrator in Settings."/>
                                 ) : (
-                                    <p className="text-gray-500 font-medium">{userProfile.role}</p>
+                                    <div className="flex flex-wrap items-center justify-center lg:justify-start gap-2 mt-1">
+                                        <p className="text-gray-500 font-medium">{displayedProfile.role}</p>
+                                        <span className="text-gray-300">|</span>
+                                        <span className="font-mono text-xs font-bold text-[#1E5631] bg-green-50 px-2 py-0.5 rounded border border-green-200 flex items-center gap-1">
+                                            <span className="material-icons-outlined text-[10px]">key</span>
+                                            <span>ID: {selectedMember?.id || 'N/A'}</span>
+                                        </span>
+                                    </div>
                                 )}
                             </div>
                         </div>
-                        <div className="flex-shrink-0">
+                        <div className="flex-shrink-0 w-full lg:w-auto">
                            {isEditing ? (
-                                <div className="flex gap-2">
-                                    <button onClick={handleEditToggle} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg font-semibold text-sm">Cancel</button>
-                                    <button onClick={handleSave} className="px-4 py-2 bg-green-600 text-white rounded-lg font-semibold text-sm">Save</button>
+                                <div className="flex gap-2 justify-center lg:justify-end flex-wrap">
+                                    <button onClick={handleEditToggle} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg font-semibold text-sm whitespace-nowrap">Cancel</button>
+                                    <button onClick={handleSave} className="px-4 py-2 bg-green-600 text-white rounded-lg font-semibold text-sm whitespace-nowrap">Save</button>
                                 </div>
                             ) : (
-                                <div className="flex items-center gap-2 flex-col sm:flex-row">
+                                <div className="flex flex-row lg:flex-col items-center lg:items-end gap-2 flex-wrap lg:flex-nowrap justify-center w-full">
                                      <button
                                         onClick={handleShareProfile}
                                         disabled={isGenerating}
-                                        className="flex w-full sm:w-auto items-center justify-center space-x-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-100 transition-colors shadow-sm disabled:bg-gray-200 disabled:cursor-wait"
+                                        className="flex whitespace-nowrap items-center justify-center space-x-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-100 transition-colors shadow-sm disabled:bg-gray-200 disabled:cursor-wait w-full lg:w-auto"
                                     >
                                         <ShareIcon />
                                         <span>{isGenerating ? 'Generating...' : 'Share Profile'}</span>
                                     </button>
-                                    <button onClick={handleEditToggle} className="flex w-full sm:w-auto items-center justify-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-sm">
-                                        <EditIcon />
-                                        <span>Edit Profile</span>
-                                    </button>
+                                    {selectedMemberEmail.toLowerCase() === currentUser?.email?.toLowerCase() && (
+                                        <button onClick={handleEditToggle} className="flex whitespace-nowrap items-center justify-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-sm w-full lg:w-auto">
+                                            <EditIcon />
+                                            <span>Edit Profile</span>
+                                        </button>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -448,17 +534,26 @@ const UserProfilePage = ({
                          {isEditing ? (
                             <textarea name="bio" value={formData.bio} onChange={handleChange} className={textareaClasses}></textarea>
                         ) : (
-                           <p className="text-gray-600 text-sm leading-relaxed">{userProfile.bio || 'No bio available.'}</p>
+                           <p className="text-gray-600 text-sm leading-relaxed">{displayedProfile.bio || 'No bio available.'}</p>
                         )}
                     </InfoCard>
                      <InfoCard title="Contact & Farm Info">
                         <div className="space-y-3 text-sm">
+                            <div className="flex justify-between items-center bg-gray-50 p-2 rounded-lg border border-gray-100">
+                                <span className="font-medium text-gray-500 flex items-center gap-1">
+                                    <span className="material-icons-outlined text-sm text-[#1E5631]">key</span>
+                                    <span>Unique ID</span>
+                                </span>
+                                <span className="font-mono text-xs font-bold text-[#1E5631] bg-green-50 px-2 py-1 rounded border border-green-200">
+                                    {selectedMember?.id || 'N/A'}
+                                </span>
+                            </div>
                             <div className="flex justify-between items-center">
                                 <span className="font-medium text-gray-500">Email</span>
                                 {isEditing ? (
                                     <input type="email" name="email" value={formData.email} onChange={handleChange} className={`${inputClasses} text-right w-2/3`} />
                                 ) : (
-                                    <span className="text-gray-800 font-semibold text-right truncate">{userProfile.email}</span>
+                                    <span className="text-gray-800 font-semibold text-right truncate">{displayedProfile.email}</span>
                                 )}
                             </div>
                             <div className="flex justify-between items-center">
@@ -466,7 +561,7 @@ const UserProfilePage = ({
                                 {isEditing ? (
                                     <input type="tel" name="phone" value={formData.phone} onChange={handleChange} className={`${inputClasses} text-right w-2/3`} />
                                 ) : (
-                                    <span className="text-gray-800 font-semibold text-right">{userProfile.phone}</span>
+                                    <span className="text-gray-800 font-semibold text-right">{displayedProfile.phone}</span>
                                 )}
                             </div>
                             
@@ -488,7 +583,7 @@ const UserProfilePage = ({
             <div className="absolute -left-[9999px] top-0" aria-hidden="true">
                 <ShareableProfileCard
                     ref={shareableProfileRef}
-                    userProfile={userProfile}
+                    userProfile={displayedProfile}
                     businessProfile={businessProfile}
                     stats={activityStats}
                 />

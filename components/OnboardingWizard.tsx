@@ -109,7 +109,17 @@ const OnboardingWizard = ({
         <div className="fixed inset-0 bg-slate-100 z-50 flex justify-center p-4 overflow-y-auto">
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl p-6 sm:p-8 my-auto transform transition-all">
                 <h2 className="text-xl sm:text-2xl font-bold text-center text-gray-800 mb-2">Welcome to The Agric App!</h2>
-                <p className="text-center text-gray-600 mb-6 sm:mb-8 text-sm sm:text-base">Let's get your digital farm set up in a few quick steps.</p>
+                <p className="text-center text-gray-600 mb-4 sm:mb-6 text-sm sm:text-base">Let's get your digital farm set up in a few quick steps.</p>
+                
+                {/* Starter Tier Setup Notice */}
+                <div className="bg-[#EAF5E5] border border-green-200 rounded-xl p-4 mb-6 flex flex-col items-center text-center">
+                    <span className="bg-[#4C9A2A] text-white text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-full mb-2">
+                        Starter Tier Offer Active
+                    </span>
+                    <p className="text-xs text-green-800 font-medium leading-relaxed">
+                        Every new sign-up starts on our free <strong>Starter Tier</strong>. This wizard sets up your initial profile, enterprises, and first location mapping. Upgrade anytime from your dashboard after completing this basic setup!
+                    </p>
+                </div>
                 
                 <ProgressBar />
 
@@ -171,6 +181,11 @@ const OnboardingWizard = ({
                     <div className="space-y-6">
                         <h3 className="text-lg font-semibold text-gray-700 text-center">Step 3: Your First Location</h3>
                         <p className="text-center text-gray-500 text-sm -mt-4">Let's add your first field or pasture.</p>
+                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-center">
+                            <p className="text-xs text-amber-700 font-semibold">
+                                ⚠️ Starter Tier limit: 1 farm location mapping allowed. Additional locations can be mapped after upgrading.
+                            </p>
+                        </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                              <div className="sm:col-span-2">
                                 <label htmlFor="locationName" className="block text-sm font-medium text-gray-600 mb-1">Location Name</label>

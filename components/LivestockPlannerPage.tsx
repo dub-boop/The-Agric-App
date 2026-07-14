@@ -1480,6 +1480,7 @@ const BreedingTab = ({ animals, breedingRecords, setAnimals, setBreedingRecords,
     const [isBreedingFormOpen, setIsBreedingFormOpen] = useState(false);
     const [editingRecord, setEditingRecord] = useState<BreedingRecord | null>(null);
     const [recordForBirth, setRecordForBirth] = useState<BreedingRecord | null>(null);
+    const [deletingRecordId, setDeletingRecordId] = useState<string | null>(null);
 
     const handleAdd = () => {
         setEditingRecord(null);
@@ -1492,9 +1493,7 @@ const BreedingTab = ({ animals, breedingRecords, setAnimals, setBreedingRecords,
     };
     
     const handleDelete = (id: string) => {
-        if (window.confirm('Are you sure you want to delete this breeding record?')) {
-            setBreedingRecords(prev => prev.filter(rec => rec.id !== id));
-        }
+        setDeletingRecordId(id);
     };
     
     const handleRecordBirth = (record: BreedingRecord) => {
@@ -1638,6 +1637,36 @@ const BreedingTab = ({ animals, breedingRecords, setAnimals, setBreedingRecords,
                 breedingRecord={recordForBirth}
                 animals={animals}
             />
+
+            {deletingRecordId && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-50 p-4">
+                    <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 border border-gray-100">
+                        <h3 className="text-lg font-bold text-gray-900">Confirm Deletion</h3>
+                        <p className="text-sm text-gray-500 mt-2">
+                            Are you sure you want to delete this breeding record? This action cannot be undone.
+                        </p>
+                        <div className="mt-6 flex justify-end space-x-3">
+                            <button
+                                type="button"
+                                onClick={() => setDeletingRecordId(null)}
+                                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors cursor-pointer border-0"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setBreedingRecords(prev => prev.filter(rec => rec.id !== deletingRecordId));
+                                    setDeletingRecordId(null);
+                                }}
+                                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors cursor-pointer border-0"
+                            >
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
@@ -1928,6 +1957,7 @@ const LivestockPlannerPage = ({
     const [viewingAnimal, setViewingAnimal] = useState<LivestockRecord | null>(null);
     const [editingHealthEvent, setEditingHealthEvent] = useState<HealthEvent | null>(null);
     const [healthFormMode, setHealthFormMode] = useState<'add' | 'edit'>('add');
+    const [deletingRecord, setDeletingRecord] = useState<{ id: string, type: 'animal' | 'health' } | null>(null);
 
     // --- Filtered Data ---
     const filteredAnimals = useMemo(() => animals.filter(a => selectedLocationId === 'all' || a.farmId === selectedLocationId), [animals, selectedLocationId]);
@@ -2000,9 +2030,7 @@ const LivestockPlannerPage = ({
     };
     
     const handleDeleteAnimal = (id: string) => {
-        if(window.confirm('Are you sure you want to delete this record? This action cannot be undone.')){
-             setAnimals(prev => prev.filter(animal => animal.id !== id));
-        }
+        setDeletingRecord({ id, type: 'animal' });
     };
     
     const handleAnimalFormSubmit = (data: AnimalFormData) => {
@@ -2131,9 +2159,7 @@ const LivestockPlannerPage = ({
     };
 
     const handleDeleteHealthEvent = (id: string) => {
-        if (window.confirm('Are you sure you want to delete this health record? This action cannot be undone.')) {
-            setHealthEvents(prev => prev.filter(event => event.id !== id));
-        }
+        setDeletingRecord({ id, type: 'health' });
     };
     
     const handleCompleteScheduledEvent = (eventId: string) => {
@@ -2141,6 +2167,7 @@ const LivestockPlannerPage = ({
         if (!eventToComplete) return;
 
         const now = new Date();
+        now.setHours(0, 0, 0, 0);
 
         // Pass the newStatus from the event to the effect function
         if (eventToComplete.newStatus) {
@@ -2450,6 +2477,40 @@ const LivestockPlannerPage = ({
                 healthHistory={healthEvents.filter(e => e.animals.some(a => a.animalId === viewingAnimal?.id))}
                 farmLocations={farmLocations}
             />
+
+            {deletingRecord && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-50 p-4 animate-fade-in">
+                    <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 border border-gray-100">
+                        <h3 className="text-lg font-bold text-gray-900">Confirm Deletion</h3>
+                        <p className="text-sm text-gray-500 mt-2">
+                            Are you sure you want to delete this {deletingRecord.type === 'animal' ? 'animal record' : 'health record'}? This action cannot be undone.
+                        </p>
+                        <div className="mt-6 flex justify-end space-x-3">
+                            <button
+                                type="button"
+                                onClick={() => setDeletingRecord(null)}
+                                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors cursor-pointer border-0"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (deletingRecord.type === 'animal') {
+                                        setAnimals(prev => prev.filter(animal => animal.id !== deletingRecord.id));
+                                    } else {
+                                        setHealthEvents(prev => prev.filter(event => event.id !== deletingRecord.id));
+                                    }
+                                    setDeletingRecord(null);
+                                }}
+                                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors cursor-pointer border-0"
+                            >
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
         </main>
     );

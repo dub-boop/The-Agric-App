@@ -530,7 +530,7 @@ export const USER_PROFILE_DATA: UserProfile = {
 
 export const TEAM_MEMBERS_DATA: TeamMember[] = [
   {
-    id: 'user-1',
+    id: 'TAP982101',
     email: 'john.doe@greenvalley.com',
     role: 'Farm Manager',
     permissions: PERMISSIONS,
@@ -538,7 +538,7 @@ export const TEAM_MEMBERS_DATA: TeamMember[] = [
     status: 'Active',
   },
   {
-    id: 'user-2',
+    id: 'TAP439102',
     email: 'jane.smith@greenvalley.com',
     role: 'Accountant',
     permissions: DEFAULT_PERMISSIONS['Accountant'],
@@ -546,7 +546,7 @@ export const TEAM_MEMBERS_DATA: TeamMember[] = [
     status: 'Active',
   },
   {
-    id: 'user-3',
+    id: 'TAP712103',
     email: 'new.user@example.com',
     role: 'Field Officer',
     permissions: DEFAULT_PERMISSIONS['Field Officer'],
@@ -557,9 +557,9 @@ export const TEAM_MEMBERS_DATA: TeamMember[] = [
 ];
 
 export const GLOBAL_ACTIVITY_LOG: ActivityLog[] = [
-    { id: 'log-1', userId: 'user-1', icon: 'assignment', text: 'Created a new cropping plan for Maize.', date: new Date(Date.now() - 2 * 60 * 60 * 1000) },
-    { id: 'log-2', userId: 'user-2', icon: 'receipt_long', text: 'Confirmed receipt #REC-12346.', date: new Date(Date.now() - 5 * 60 * 60 * 1000) },
-    { id: 'log-3', userId: 'user-1', icon: 'pets', text: 'Logged vaccination event for Cattle.', date: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+    { id: 'log-1', userId: 'TAP982101', icon: 'assignment', text: 'Created a new cropping plan for Maize.', date: new Date(Date.now() - 2 * 60 * 60 * 1000) },
+    { id: 'log-2', userId: 'TAP439102', icon: 'receipt_long', text: 'Confirmed receipt #REC-12346.', date: new Date(Date.now() - 5 * 60 * 60 * 1000) },
+    { id: 'log-3', userId: 'TAP982101', icon: 'pets', text: 'Logged vaccination event for Cattle.', date: new Date(Date.now() - 24 * 60 * 60 * 1000) },
 ];
 
 export const SUPPORT_PROGRAMS: SupportProgram[] = [
@@ -573,7 +573,8 @@ export const SUPPORT_PROGRAMS: SupportProgram[] = [
         deadline: new Date('2024-12-31'),
         eligibility: ['Smallholder farmer', 'Member of a cooperative'],
         requiredDocuments: ['Bank Verification Number (BVN)', 'Cooperative Membership ID'],
-        applyLink: '#'
+        applyLink: '#',
+        location: 'National'
     },
     {
         id: 'SP-002',
@@ -585,7 +586,8 @@ export const SUPPORT_PROGRAMS: SupportProgram[] = [
         deadline: new Date('2024-10-31'),
         eligibility: ['Active in priority value chains (e.g., Cashew, Rice, Aquaculture)', 'Located in participating states'],
         requiredDocuments: ['Business Plan', 'Evidence of Land Ownership/Lease'],
-        applyLink: '#'
+        applyLink: '#',
+        location: 'Lagos & participating states'
     },
     {
         id: 'SP-003',
@@ -597,6 +599,7 @@ export const SUPPORT_PROGRAMS: SupportProgram[] = [
         deadline: new Date('2024-02-28'),
         eligibility: ['Rural smallholder farmer', 'Willingness to pass on the gift of training and livestock'],
         requiredDocuments: ['Community Leader Recommendation'],
-        applyLink: '#'
+        applyLink: '#',
+        location: 'Oyo State'
     }
 ];

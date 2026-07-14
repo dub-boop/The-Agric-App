@@ -27,6 +27,24 @@
           "updatedAt": { "type": "timestamp" }
         }
       }
+    },
+    "support_programs": {
+      "schema": {
+        "properties": {
+          "id": { "type": "string" },
+          "title": { "type": "string" },
+          "provider": { "type": "string" },
+          "category": { "type": "string" },
+          "description": { "type": "string" },
+          "status": { "type": "string" },
+          "deadline": { "type": "timestamp" },
+          "eligibility": { "type": "array" },
+          "requiredDocuments": { "type": "array" },
+          "applyLink": { "type": "string" },
+          "location": { "type": "string" },
+          "updatedAt": { "type": "timestamp" }
+        }
+      }
     }
   }
 }
