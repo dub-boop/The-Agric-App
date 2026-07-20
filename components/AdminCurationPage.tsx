@@ -337,6 +337,9 @@ const AdminCurationPage = ({ onBack }: AdminCurationPageProps) => {
       'Email Address',
       'Phone Number',
       'Primary Location',
+      'Farm Size(s)',
+      'Geo-coordinates',
+      'Total Livestock Count',
       'Total Count of Team Members',
       'Enterprise Focus',
       'YTD Profit/Loss Balance (₦)'
@@ -356,6 +359,16 @@ const AdminCurationPage = ({ onBack }: AdminCurationPageProps) => {
         enterpriseFocus = 'General Agriculture';
       }
 
+      const totalLivestockCount = (u.animals || []).reduce((acc: number, record: any) => {
+        if (record.trackingType === 'BATCH') {
+          return acc + (record.quantity || 0);
+        }
+        return acc + 1;
+      }, 0);
+
+      const farmSizes = (u.farmLocations || []).map((loc: any) => `${loc.name || 'Location'}: ${loc.size || 0} ${loc.unit || 'ha'}`).join('; ');
+      const geoCoordinates = (u.farmLocations || []).map((loc: any) => `${loc.name || 'Location'}: (${loc.lat || 0}, ${loc.lon || 0})`).join('; ');
+
       const currentYear = new Date().getFullYear();
       const ytdIncome = (u.incomeRecords || [])
         .filter((r: any) => r.date && new Date(r.date).getFullYear() === currentYear)
@@ -372,6 +385,9 @@ const AdminCurationPage = ({ onBack }: AdminCurationPageProps) => {
         u.email || u.userProfile?.email || 'N/A',
         u.userProfile?.phone || u.businessProfile?.phone || 'N/A',
         u.farmLocations?.[0]?.name || 'N/A',
+        farmSizes || 'N/A',
+        geoCoordinates || 'N/A',
+        totalLivestockCount,
         u.teamMembers?.length || 0,
         enterpriseFocus,
         `₦${ytdBalance.toLocaleString()}`
@@ -1266,8 +1282,8 @@ const AdminCurationPage = ({ onBack }: AdminCurationPageProps) => {
                                 <tr>
                                   <th className="px-6 py-4">User Details</th>
                                   <th className="px-6 py-4">Business & Contact</th>
-                                  <th className="px-6 py-4">Primary Location</th>
-                                  <th className="px-6 py-4">Team & Focus</th>
+                                  <th className="px-6 py-4">Farm Locations & Sizes</th>
+                                  <th className="px-6 py-4">Team, Livestock & Focus</th>
                                   <th className="px-6 py-4">SaaS Overrides</th>
                                   <th className="px-6 py-4">YTD P&L Balance</th>
                                   <th className="px-6 py-4">Subscription Plan</th>
@@ -1283,6 +1299,13 @@ const AdminCurationPage = ({ onBack }: AdminCurationPageProps) => {
                                   const ytdBalance = calculateYTDProfitLoss(user);
                                   const formattedBalance = `₦${ytdBalance.toLocaleString()}`;
                                   
+                                  const totalLivestockCount = (user.animals || []).reduce((acc: number, record: any) => {
+                                    if (record.trackingType === 'BATCH') {
+                                      return acc + (record.quantity || 0);
+                                    }
+                                    return acc + 1;
+                                  }, 0);
+
                                   return (
                                     <React.Fragment key={user.uid}>
                                       <tr className={`hover:bg-slate-50/55 transition-colors ${isRowExpanded ? 'bg-slate-50/70 font-semibold' : ''}`}>
@@ -1297,18 +1320,34 @@ const AdminCurationPage = ({ onBack }: AdminCurationPageProps) => {
                                           <div className="text-slate-500 font-medium text-[11px] mt-0.5">📞 {user.userProfile?.phone || user.businessProfile?.phone || 'N/A'}</div>
                                         </td>
 
-                                        <td className="px-6 py-4">
-                                          <div className="font-bold text-slate-800 text-[11.5px]">{user.farmLocations?.[0]?.name || 'N/A'}</div>
-                                          <div className="text-[11px] text-slate-500 font-semibold mt-0.5">
+                                        <td className="px-6 py-4 space-y-1 max-w-[200px]">
+                                          <div className="font-bold text-slate-800 text-[11.5px] truncate">{user.farmLocations?.[0]?.name || 'No Farm Location'}</div>
+                                          <div className="text-[11px] text-slate-500 font-semibold">
                                             🏠 Hub Locations: <strong>{user.farmLocations?.length || 0}</strong>
                                           </div>
+                                          {user.farmLocations && user.farmLocations.length > 0 && (
+                                            <div className="text-[10px] text-slate-600 mt-1.5 space-y-1.5 border-t border-slate-100 pt-1.5 max-h-[120px] overflow-y-auto pr-1">
+                                              {user.farmLocations.map((loc: any, idx: number) => (
+                                                <div key={loc.id || idx} className="text-[10px] text-slate-500 bg-slate-50 rounded p-1 border border-slate-100 leading-normal">
+                                                  <span className="font-extrabold text-slate-700 block truncate">{loc.name || `Location ${idx+1}`}</span>
+                                                  <div className="flex flex-col gap-0.5 mt-0.5 font-semibold text-slate-600">
+                                                    <span>📏 Size: <strong className="text-slate-800">{loc.size || 0} {loc.unit || 'ha'}</strong></span>
+                                                    <span>📍 Lat/Lon: <strong className="text-slate-800 font-mono text-[9px]">{loc.lat || '0'}, {loc.lon || '0'}</strong></span>
+                                                  </div>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          )}
                                         </td>
 
-                                        <td className="px-6 py-4 space-y-1">
-                                          <div className="text-[11px] text-slate-600 font-semibold">
-                                            👥 Team: <strong>{user.teamMembers?.length || 0} members</strong>
+                                        <td className="px-6 py-4 space-y-1.5">
+                                          <div className="text-[11px] text-slate-600 font-semibold flex items-center gap-1">
+                                            <span>👥</span> Team: <strong>{user.teamMembers?.length || 0} members</strong>
                                           </div>
-                                          <div className="text-[10.5px] text-slate-500 leading-snug font-medium">
+                                          <div className="text-[11px] text-slate-600 font-semibold flex items-center gap-1">
+                                            <span>🐄</span> Livestock: <strong className="text-slate-800">{totalLivestockCount} head</strong>
+                                          </div>
+                                          <div className="text-[10.5px] text-slate-500 leading-snug font-medium pt-1.5 border-t border-slate-100">
                                             🎯 Focus: {getEnterpriseFocus(user)}
                                           </div>
                                         </td>

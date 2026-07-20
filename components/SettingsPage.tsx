@@ -317,6 +317,42 @@ const SettingsPage = ({
         );
     };
 
+    const [locatingFarmId, setLocatingFarmId] = useState<number | null>(null);
+    const [farmLocationError, setFarmLocationError] = useState<string | null>(null);
+
+    const handleGetFarmCoordinates = (farmId: number) => {
+        if (!navigator.geolocation) {
+            setFarmLocationError("Geolocation is not supported by your browser");
+            return;
+        }
+        setLocatingFarmId(farmId);
+        setFarmLocationError(null);
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const { latitude, longitude } = position.coords;
+                setFarmLocations(currentFarms =>
+                    currentFarms.map(f =>
+                        f.id === farmId
+                            ? { ...f, lat: latitude.toFixed(6), lon: longitude.toFixed(6) }
+                            : f
+                    )
+                );
+                setLocatingFarmId(null);
+                if (onAddActivity) {
+                    const farmObj = farmLocations.find(f => f.id === farmId);
+                    const farmName = farmObj?.name || `Farm #${farmId}`;
+                    onAddActivity(`Captured coordinates for ${farmName}: (${latitude.toFixed(6)}, ${longitude.toFixed(6)})`, 'settings');
+                }
+            },
+            (error) => {
+                console.error("Error getting farm location:", error);
+                setFarmLocationError("Unable to retrieve location. Please check browser permissions.");
+                setLocatingFarmId(null);
+            },
+            { enableHighAccuracy: true, timeout: 10000 }
+        );
+    };
+
     const handleAddFarm = () => {
         if (isTrialExpired) {
             alert('Your trial period has expired. Please upgrade your plan to continue.');
@@ -581,20 +617,50 @@ const SettingsPage = ({
                                             placeholder="e.g., North Field"
                                         />
                                     </div>
-                                    <ControlledInputField 
-                                        label="Latitude"
-                                        id={`farmLat-${farm.id}`} 
-                                        value={farm.lat}
-                                        onChange={(e) => handleFarmChange(farm.id, 'lat', e.target.value)}
-                                        placeholder="e.g., 6.454066"
-                                    />
-                                    <ControlledInputField 
-                                        label="Longitude"
-                                        id={`farmLon-${farm.id}`} 
-                                        value={farm.lon}
-                                        onChange={(e) => handleFarmChange(farm.id, 'lon', e.target.value)}
-                                        placeholder="e.g., 7.424088"
-                                    />
+                                    <div className="md:col-span-2 space-y-3">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <ControlledInputField 
+                                                label="Latitude"
+                                                id={`farmLat-${farm.id}`} 
+                                                value={farm.lat}
+                                                onChange={(e) => handleFarmChange(farm.id, 'lat', e.target.value)}
+                                                placeholder="e.g., 6.454066"
+                                            />
+                                            <ControlledInputField 
+                                                label="Longitude"
+                                                id={`farmLon-${farm.id}`} 
+                                                value={farm.lon}
+                                                onChange={(e) => handleFarmChange(farm.id, 'lon', e.target.value)}
+                                                placeholder="e.g., 7.424088"
+                                            />
+                                        </div>
+                                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-1">
+                                            <button
+                                                type="button"
+                                                onClick={() => handleGetFarmCoordinates(farm.id)}
+                                                disabled={locatingFarmId === farm.id}
+                                                className="inline-flex items-center justify-center gap-2 px-4 py-2 border border-blue-600 rounded-md text-blue-600 hover:bg-blue-50 font-semibold transition-colors disabled:opacity-50 text-xs cursor-pointer h-9 w-full sm:w-auto"
+                                            >
+                                                {locatingFarmId === farm.id ? (
+                                                    <>
+                                                        <svg className="animate-spin h-3.5 w-3.5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                        </svg>
+                                                        <span>Detecting Location...</span>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <span className="material-icons-outlined text-sm">my_location</span>
+                                                        <span>Detect My Coordinates</span>
+                                                    </>
+                                                )}
+                                            </button>
+                                            {farmLocationError && locatingFarmId === farm.id && (
+                                                <p className="text-xs text-red-500 font-medium">{farmLocationError}</p>
+                                            )}
+                                        </div>
+                                    </div>
                                     <div>
                                         <label htmlFor={`farmSize-${farm.id}`} className="block text-sm font-medium text-gray-600 mb-1">Size (Hectares)</label>
                                         <input 

@@ -34,12 +34,25 @@ import type {
 export function convertTimestampsToDates(obj: any): any {
   if (obj === null || obj === undefined) return obj;
   
-  if (typeof obj.toDate === 'function') {
-    return obj.toDate();
+  if (obj instanceof Date) {
+    return obj;
+  }
+
+  if (typeof obj === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})?$/.test(obj)) {
+    const d = new Date(obj);
+    if (!isNaN(d.getTime())) {
+      return d;
+    }
   }
   
-  if (typeof obj === 'object' && 'seconds' in obj && 'nanoseconds' in obj) {
-    return new Date(obj.seconds * 1000 + Math.round(obj.nanoseconds / 1000000));
+  if (typeof obj === 'object') {
+    if (typeof obj.toDate === 'function') {
+      return obj.toDate();
+    }
+    
+    if ('seconds' in obj && 'nanoseconds' in obj) {
+      return new Date(obj.seconds * 1000 + Math.round(obj.nanoseconds / 1000000));
+    }
   }
 
   if (Array.isArray(obj)) {

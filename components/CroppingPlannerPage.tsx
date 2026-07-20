@@ -810,23 +810,10 @@ const ActivitiesBoardTab = ({ activities, onAdd, onEdit, onStatusChange, onArchi
     );
     
     return (
-        <div className="space-y-4">
-             <div className="flex items-center justify-between mb-4 p-6 border-b border-gray-200">
-                <h3 className="text-lg font-bold text-gray-800">Cropping Activities Board</h3>
-                <div className="flex items-center space-x-2">
-                     <button onClick={onShowHistory} className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg font-semibold hover:bg-gray-50 transition-colors shadow-sm flex items-center">
-                        <HistoryIcon /> <span className="ml-2 hidden sm:inline">History</span>
-                    </button>
-                    <button onClick={onAdd} className="bg-green-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-700 transition-colors shadow-sm flex items-center">
-                        <PlusIcon /> <span className="ml-2 hidden sm:inline">New Activity</span>
-                    </button>
-                </div>
-            </div>
-            <div className="p-6 flex space-x-4 overflow-x-auto">
-                <StatusColumn title="To Do" tasks={columns['To Do']} color="border-red-500" />
-                <StatusColumn title="In Progress" tasks={columns['In Progress']} color="border-yellow-500" />
-                <StatusColumn title="Done" tasks={columns['Done']} color="border-green-500" />
-            </div>
+        <div className="p-6 flex space-x-4 overflow-x-auto">
+            <StatusColumn title="To Do" tasks={columns['To Do']} color="border-red-500" />
+            <StatusColumn title="In Progress" tasks={columns['In Progress']} color="border-yellow-500" />
+            <StatusColumn title="Done" tasks={columns['Done']} color="border-green-500" />
         </div>
     );
 };
@@ -1076,12 +1063,29 @@ const CroppingPlannerPage = ({ setSidebarOpen, availableCrops, farmLocations, se
                             <DownloadIcon className="h-5 w-5" /> <span className="ml-2 hidden sm:inline">Export CSV</span>
                         </button>
                     )}
-                     <button 
-                        onClick={openAddPanel}
-                        className="bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg text-sm font-semibold hover:bg-green-700 transition-colors shadow-sm flex items-center"
-                    >
-                        <PlusIcon /> <span className="ml-2 hidden sm:inline">Add Plan</span>
-                    </button>
+                    {viewMode === 'tasks' ? (
+                        <>
+                            <button
+                                onClick={() => setIsActivityHistoryOpen(true)}
+                                className="bg-white border border-gray-300 text-gray-700 px-3 sm:px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-50 transition-colors shadow-sm flex items-center"
+                            >
+                                <HistoryIcon /> <span className="ml-2 hidden sm:inline">History</span>
+                            </button>
+                            <button
+                                onClick={() => { setEditingActivity(null); setIsActivityFormOpen(true); }}
+                                className="bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg text-sm font-semibold hover:bg-green-700 transition-colors shadow-sm flex items-center"
+                            >
+                                <PlusIcon /> <span className="ml-2 hidden sm:inline">New Activity</span>
+                            </button>
+                        </>
+                    ) : (
+                        <button 
+                            onClick={openAddPanel}
+                            className="bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg text-sm font-semibold hover:bg-green-700 transition-colors shadow-sm flex items-center"
+                        >
+                            <PlusIcon /> <span className="ml-2 hidden sm:inline">Add Plan</span>
+                        </button>
+                    )}
                     {viewMode === 'timeline' && (
                         <select 
                             value={selectedYear}

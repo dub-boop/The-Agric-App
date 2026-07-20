@@ -498,12 +498,6 @@ const CooperativesPage = ({ setSidebarOpen }: CooperativesPageProps) => {
                     {selectedCooperative.sharedEquipment.map((eq, i) => (
                       <div key={i} className="flex items-center justify-between bg-slate-50 border border-slate-150 p-3 rounded-xl hover:bg-slate-100 transition-colors">
                         <span className="text-xs sm:text-sm font-bold text-slate-700">⚙️ {eq}</span>
-                        <button
-                          onClick={() => setLeasingMachine(eq)}
-                          className="bg-green-600 hover:bg-green-700 text-white font-bold text-[10px] uppercase px-3 py-1.5 rounded-lg transition-colors shadow-sm cursor-pointer"
-                        >
-                          Request Lease
-                        </button>
                       </div>
                     ))}
                   </div>

@@ -17,22 +17,29 @@ const RecordCard = ({ title, description, icon, buttonText, buttonColor, iconCol
 }) => (
     <div 
         onClick={onClick}
-        className="bg-white rounded-xl shadow-md p-6 flex flex-col justify-between border border-gray-200/80 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 cursor-pointer group"
+        className="bg-white rounded-xl shadow-md p-6 flex flex-col justify-between border border-gray-200/80 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 cursor-pointer group text-center items-center h-full"
     >
-        <div>
-            <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center">
-                    <div className={`p-3 rounded-full mr-4 transition-colors duration-300 ${iconBgColor}`}>
-                        {React.cloneElement(icon, { className: `h-6 w-6 ${iconColor}` })}
-                    </div>
-                    <h3 className="text-xl font-bold text-gray-800">{title}</h3>
-                </div>
-                 <p className="text-2xl font-bold text-gray-800">{value}</p>
+        <div className="flex flex-col items-center w-full">
+            {/* Icon above Title */}
+            <div className={`p-3 rounded-full mb-4 transition-colors duration-300 ${iconBgColor} flex items-center justify-center shadow-sm shrink-0`}>
+                {React.cloneElement(icon, { className: `h-6 w-6 ${iconColor}` })}
             </div>
-            <p className="text-gray-600 mb-8 text-sm">{description}</p>
+            
+            {/* Title (e.g., Total Income) */}
+            <h3 className="text-base font-bold text-gray-800 mb-1" title={title}>{title}</h3>
+            
+            {/* Amount / Value */}
+            <p className="text-2xl font-black text-gray-900 tracking-tight mb-2" title={value}>
+                {value}
+            </p>
+            
+            {/* Descriptive texts */}
+            <p className="text-gray-500 mb-6 text-xs leading-relaxed max-w-[220px]">{description}</p>
         </div>
+        
+        {/* Button */}
         <button 
-            className={`w-full px-6 py-3 rounded-lg font-semibold flex items-center justify-between shadow-md text-white transition-colors ${buttonColor}`}
+            className={`w-full px-5 py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2 shadow-md text-white transition-all text-sm ${buttonColor}`}
         >
             <span>{buttonText}</span>
             <ArrowRightIcon />
@@ -806,11 +813,36 @@ const ProfitLossView = ({ incomeRecords, expenditureRecords, onBack }: {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                    <div className="bg-green-100 p-4 rounded-lg text-center"><p className="text-sm text-green-800">Total Income</p><p className="text-2xl font-bold text-green-800">₦{summary.income.toLocaleString()}</p></div>
-                    <div className="bg-red-100 p-4 rounded-lg text-center"><p className="text-sm text-red-800">Total Expenditure</p><p className="text-2xl font-bold text-red-800">₦{summary.expenditure.toLocaleString()}</p></div>
-                    <div className={`${netProfit >= 0 ? 'bg-blue-100' : 'bg-orange-100'} p-4 rounded-lg text-center`}>
-                        <p className={`text-sm ${netProfit >= 0 ? 'text-blue-800' : 'text-orange-800'}`}>Net Profit/Loss</p>
-                        <p className={`text-2xl font-bold ${netProfit >= 0 ? 'text-blue-800' : 'text-orange-800'}`}>₦{netProfit.toLocaleString()}</p>
+                    <div className="bg-green-50 border border-green-100 shadow-sm p-5 rounded-xl text-center flex flex-col items-center justify-center transition-all hover:shadow-md">
+                        <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-3 text-green-800 shrink-0 shadow-inner">
+                            <IncomeIcon className="h-6 w-6" />
+                        </div>
+                        <p className="text-sm font-semibold uppercase tracking-wider text-green-800">Total Income</p>
+                        <p className="text-2xl font-black text-green-900 mt-1">₦{summary.income.toLocaleString()}</p>
+                    </div>
+
+                    <div className="bg-red-50 border border-red-100 shadow-sm p-5 rounded-xl text-center flex flex-col items-center justify-center transition-all hover:shadow-md">
+                        <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-3 text-red-800 shrink-0 shadow-inner">
+                            <ExpenditureIcon className="h-6 w-6" />
+                        </div>
+                        <p className="text-sm font-semibold uppercase tracking-wider text-red-800">Total Expenditure</p>
+                        <p className="text-2xl font-black text-red-900 mt-1">₦{summary.expenditure.toLocaleString()}</p>
+                    </div>
+
+                    <div className={`border shadow-sm p-5 rounded-xl text-center flex flex-col items-center justify-center transition-all hover:shadow-md ${
+                        netProfit >= 0 ? 'bg-blue-50 border-blue-100' : 'bg-orange-50 border-orange-100'
+                    }`}>
+                        <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-3 shrink-0 shadow-inner ${
+                            netProfit >= 0 ? 'bg-blue-100 text-blue-800' : 'bg-orange-100 text-orange-800'
+                        }`}>
+                            <ProfitLossIcon className="h-6 w-6" />
+                        </div>
+                        <p className={`text-sm font-semibold uppercase tracking-wider ${
+                            netProfit >= 0 ? 'text-blue-800' : 'text-orange-800'
+                        }`}>Net Profit/Loss</p>
+                        <p className={`text-2xl font-black mt-1 ${
+                            netProfit >= 0 ? 'text-blue-900' : 'text-orange-900'
+                        }`}>₦{netProfit.toLocaleString()}</p>
                     </div>
                 </div>
                 

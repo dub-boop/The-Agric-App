@@ -71,9 +71,27 @@ const SimpleMarkdownRenderer = ({ text }: { text: string }) => {
     return <div className="space-y-2">{elements}</div>;
 };
 
-const TalkToFarmrPage = ({ setSidebarOpen }: { setSidebarOpen: (isOpen: boolean) => void }) => {
+interface TalkToFarmrPageProps {
+    setSidebarOpen: (isOpen: boolean) => void;
+    userProfile?: any;
+    businessProfile?: any;
+    farmLocations?: any[];
+    animals?: any[];
+    cropPlans?: any[];
+    inputsInventory?: any[];
+}
+
+const TalkToFarmrPage = ({
+    setSidebarOpen,
+    userProfile,
+    businessProfile,
+    farmLocations,
+    animals,
+    cropPlans,
+    inputsInventory
+}: TalkToFarmrPageProps) => {
     const [messages, setMessages] = useState<Message[]>([
-        { id: 1, sender: 'ai', text: 'Hello! I am Farmr, your AI-powered agricultural assistant. How can I help you today? You can ask me about crop diseases, livestock health, or general farming advice. Feel free to upload a photo for analysis.' }
+        { id: 1, sender: 'ai', text: `Hello! I am Farmr, your AI-powered agricultural assistant. I am now fully synchronized with your live farm records and ready to help! You can ask me about crop disease management for your crops, livestock veterinary health advice, or general operational strategy. Feel free to upload a photo of a leaf, pest, or animal for high-precision diagnostic analysis.` }
     ]);
     const [input, setInput] = useState('');
     const [image, setImage] = useState<string | null>(null);
@@ -146,15 +164,40 @@ const TalkToFarmrPage = ({ setSidebarOpen }: { setSidebarOpen: (isOpen: boolean)
                 contents.push({ text: trimmedInput });
             }
 
+            // Build dynamic context string to provide Gemini with real farm records context
+            const farmContext = `
+FARMER & BUSINESS CONTEXT:
+- Farmer Name: ${userProfile?.name || 'N/A'}
+- Business Name: ${businessProfile?.businessName || 'N/A'}
+- Primary Enterprise Focus: ${businessProfile?.primaryFocus || 'N/A'}
 
-            // FIX: Use the correct method `ai.models.generateContent` and pass the model name.
+REGISTERED FARM LOCATIONS:
+${farmLocations && farmLocations.length > 0 ? farmLocations.map((loc: any) => `- ${loc.name || 'Location'}: Size ${loc.size || 0} ${loc.unit || 'ha'}, Coordinates (${loc.lat || 0}, ${loc.lon || 0})`).join('\n') : 'No registered farm locations.'}
+
+REGISTERED LIVESTOCK RECORDS:
+${animals && animals.length > 0 ? animals.map((ani: any) => `- Breed/Tag: ${ani.breed || ani.name || 'N/A'} (Type: ${ani.type}), Tracking Type: ${ani.trackingType || 'INDIVIDUAL'}, Stock/Quantity: ${ani.quantity || 1}, Status: ${ani.healthStatus || 'Healthy'}`).join('\n') : 'No registered livestock.'}
+
+ACTIVE CROP PLANS:
+${cropPlans && cropPlans.length > 0 ? cropPlans.map((cp: any) => `- Crop Type: ${cp.cropType}, Location: ${cp.locationName || 'N/A'}, Stage: ${cp.currentStage || 'Planning'}, Target Yield: ${cp.targetYield || 'N/A'}, Status: ${cp.status || 'Active'}`).join('\n') : 'No active crop plans.'}
+
+INPUTS INVENTORY:
+${inputsInventory && inputsInventory.length > 0 ? inputsInventory.map((item: any) => `- Item Name: ${item.name}, Category: ${item.category}, Stock Level: ${item.quantity} ${item.unit || 'units'}`).join('\n') : 'No inventory records.'}
+`;
+
+            // Use the correct method `ai.models.generateContent` and pass the model name.
             const response: GenerateContentResponse = await ai.models.generateContent({
                 model: 'gemini-2.5-flash',
                 // The `contents` field expects `GenerateContentParameters`.
                 // For multimodal input, it should be an object with a `parts` array.
                 contents: { parts: contents },
                 config: {
-                    systemInstruction: "You are Farmr, a specialized AI assistant for farmers. Your expertise is in diagnosing crop diseases, offering livestock health advice, and providing practical, actionable farming solutions. When an image is provided, your primary goal is to analyze it for signs of disease or pests. Provide a potential diagnosis, suggest treatments, and offer preventive measures. If no image is provided, answer farming-related questions concisely and clearly. Format your responses using simple markdown (e.g., **bold** for titles, `*` for list items)."
+                    systemInstruction: `You are Farmr, a specialized, context-aware AI assistant for farmers. You have access to the user's real-time farm records.
+When responding, reference their specific crops, livestock records, and locations if they are relevant to their question, to provide highly customized, context-rich advice.
+
+Here is the user's current farm profile and data:
+${farmContext}
+
+Your expertise is in diagnosing crop diseases, offering livestock health advice, and providing practical, actionable farming solutions. When an image is provided, your primary goal is to analyze it for signs of disease or pests. Provide a potential diagnosis, suggest treatments, and offer preventive measures. If no image is provided, answer farming-related questions concisely and clearly. Format your responses using simple markdown (e.g., **bold** for titles, \`*\` for list items).`
                 }
             });
 
@@ -186,7 +229,10 @@ const TalkToFarmrPage = ({ setSidebarOpen }: { setSidebarOpen: (isOpen: boolean)
     return (
         <main className="flex-1 w-full flex flex-col bg-slate-100 overflow-hidden">
             <header className="flex-shrink-0 mb-4 md:mb-8 flex items-center justify-between p-4 md:p-0 md:pt-8 md:pl-8">
-                <h2 className="text-2xl md:text-3xl font-bold text-gray-700">Talk to Farmr</h2>
+                <div>
+                    <h2 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">Talk to Farmr</h2>
+                    <p className="text-xs text-slate-500 mt-1">AI-powered assistant synced with your farm records.</p>
+                </div>
                 <button
                     onClick={() => setSidebarOpen(true)}
                     className="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-200 md:hidden"
@@ -197,24 +243,40 @@ const TalkToFarmrPage = ({ setSidebarOpen }: { setSidebarOpen: (isOpen: boolean)
             </header>
             
             <div className="flex-grow flex flex-col bg-white rounded-t-xl md:rounded-xl shadow-lg mx-0 md:mx-8 md:mb-8 overflow-hidden">
+                {/* Live Context Sync Header */}
+                <div className="bg-emerald-50 border-b border-emerald-100 px-6 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-emerald-800">
+                    <div className="flex items-center gap-2 font-bold">
+                        <span className="flex h-2 w-2 relative">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                        <span>Farmr AI Synced with Live Farm Records</span>
+                    </div>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-slate-600 font-semibold">
+                        <span>📍 <strong>{farmLocations?.length || 0}</strong> Locations</span>
+                        <span>🐄 <strong>{animals?.length || 0}</strong> Livestock records</span>
+                        <span>🌱 <strong>{cropPlans?.length || 0}</strong> Crop Plans</span>
+                    </div>
+                </div>
+
                 {/* Chat Messages */}
                 <div className="flex-grow p-6 space-y-6 overflow-y-auto">
                     {messages.map(msg => (
                         <div key={msg.id} className={`flex items-end gap-3 ${msg.sender === 'user' ? 'justify-end' : ''}`}>
-                            {msg.sender === 'ai' && <div className="w-8 h-8 rounded-full bg-green-200 text-green-700 flex items-center justify-center font-bold flex-shrink-0">F</div>}
-                            <div className={`max-w-xl p-4 rounded-xl shadow-sm ${
-                                msg.sender === 'ai' ? 'bg-gray-100 text-gray-800' : 'bg-green-600 text-white'
+                            {msg.sender === 'ai' && <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center font-extrabold flex-shrink-0 text-xs">F</div>}
+                            <div className={`max-w-xl p-4 rounded-2xl shadow-sm ${
+                                msg.sender === 'ai' ? 'bg-slate-100 text-slate-800 rounded-bl-none' : 'bg-emerald-700 text-white rounded-br-none'
                             }`}>
                                 {msg.isLoading ? (
-                                    <div className="flex items-center space-x-2">
-                                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse"></div>
-                                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
-                                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
+                                    <div className="flex items-center space-x-2 py-1">
+                                        <div className="w-2 h-2 bg-slate-400 rounded-full animate-pulse"></div>
+                                        <div className="w-2 h-2 bg-slate-400 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
+                                        <div className="w-2 h-2 bg-slate-400 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
                                     </div>
                                 ) : (
                                     <>
-                                        {msg.image && <img src={msg.image} alt="User upload" className="rounded-lg mb-2 max-w-xs" />}
-                                        <div className="prose prose-sm max-w-none text-inherit">
+                                        {msg.image && <img src={msg.image} alt="User upload" className="rounded-xl mb-3 max-w-xs border border-white/20 shadow-sm" />}
+                                        <div className="prose prose-sm max-w-none text-inherit leading-relaxed">
                                             <SimpleMarkdownRenderer text={msg.text} />
                                         </div>
                                     </>
@@ -226,36 +288,33 @@ const TalkToFarmrPage = ({ setSidebarOpen }: { setSidebarOpen: (isOpen: boolean)
                 </div>
                 
                 {/* Input Area */}
-                <div className="flex-shrink-0 p-4 bg-gray-50 border-t">
+                <div className="flex-shrink-0 p-4 bg-slate-50 border-t border-slate-100">
                     {image && (
-                        <div className="mb-2 relative w-24">
-                            <img src={image} alt="Preview" className="w-24 h-24 object-cover rounded-lg" />
-                            <button onClick={() => { setImage(null); if(fileInputRef.current) fileInputRef.current.value = ''; }} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md">
-                                <CloseIcon className="h-4 w-4" />
+                        <div className="mb-3 relative inline-block">
+                            <img src={image} alt="Preview" className="w-24 h-24 object-cover rounded-xl border border-slate-200" />
+                            <button onClick={() => { setImage(null); if(fileInputRef.current) fileInputRef.current.value = ''; }} className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1.5 shadow-md border-0 cursor-pointer">
+                                <CloseIcon className="h-3.5 w-3.5" />
                             </button>
                         </div>
                     )}
                     <div className="flex items-center space-x-3">
                         <input type="file" accept="image/*" ref={fileInputRef} onChange={handleImageChange} className="hidden" />
-                        <button onClick={() => fileInputRef.current?.click()} className="p-2 text-gray-500 hover:text-green-600 transition-colors">
+                        <button onClick={() => fileInputRef.current?.click()} className="p-2 text-slate-500 hover:text-emerald-700 hover:bg-slate-100 rounded-xl transition-colors border-0 bg-transparent cursor-pointer" title="Attach Image">
                             <PaperclipIcon />
-                        </button>
-                         <button className="p-2 text-gray-500 hover:text-green-600 transition-colors">
-                            <CameraIcon />
                         </button>
                         <input
                             type="text"
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
                             onKeyPress={(e) => e.key === 'Enter' && !isLoading && handleSendMessage()}
-                            placeholder="Ask about crops, livestock, or upload an image..."
-                            className="flex-grow px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-green-500"
+                            placeholder="Ask about your crops, your livestock, or diagnose a picture..."
+                            className="flex-grow px-5 py-3 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:border-transparent bg-white text-sm"
                             disabled={isLoading}
                         />
                         <button
                             onClick={handleSendMessage}
                             disabled={isLoading}
-                            className="p-3 bg-green-600 text-white rounded-full hover:bg-green-700 transition-colors disabled:bg-gray-400"
+                            className="p-3 bg-emerald-700 text-white rounded-2xl hover:bg-emerald-800 transition-colors disabled:bg-slate-300 disabled:text-slate-500 cursor-pointer border-0 shadow-sm flex-shrink-0"
                         >
                             <SendIcon />
                         </button>

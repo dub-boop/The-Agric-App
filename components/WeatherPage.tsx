@@ -119,7 +119,7 @@ const DataWidget = ({ title, value, unit, icon }: { title: string, value: string
 );
 
 // --- Main Page Component ---
-const WeatherPage = ({ setSidebarOpen, farmLocations }: { setSidebarOpen: (isOpen: boolean) => void; farmLocations: FarmLocation[] }) => {
+const WeatherPage = ({ setSidebarOpen, farmLocations, setActivePage }: { setSidebarOpen: (isOpen: boolean) => void; farmLocations: FarmLocation[]; setActivePage?: (page: string) => void }) => {
     const [selectedLocation, setSelectedLocation] = useState<FarmLocation | null>(farmLocations[0] || null);
     const [weatherData, setWeatherData] = useState<AllWeatherData | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -127,28 +127,24 @@ const WeatherPage = ({ setSidebarOpen, farmLocations }: { setSidebarOpen: (isOpe
 
     useEffect(() => {
         if (selectedLocation) {
+            const hasCoords = typeof selectedLocation.lat === 'string' && selectedLocation.lat.trim() !== '' && typeof selectedLocation.lon === 'string' && selectedLocation.lon.trim() !== '';
+            if (!hasCoords) {
+                setWeatherData(null);
+                setIsLoading(false);
+                return;
+            }
+
             setIsLoading(true);
             setError(null);
-            
-            // --- REAL API CALL WOULD GO HERE ---
-            // Replace `fetchMockWeatherData` with your actual API call function.
-            // const API_KEY = 'YOUR_OPENWEATHERMAP_API_KEY';
-            // const url = `https://api.openweathermap.org/data/3.0/onecall?lat=${selectedLocation.lat}&lon=${selectedLocation.lon}&exclude=minutely&appid=${API_KEY}&units=metric`;
-            // fetch(url)
-            //   .then(response => response.json())
-            //   .then(data => {
-            //      // You might need to add the mocked 'agricultural' data manually if the API doesn't provide it
-            //      data.agricultural = MOCK_WEATHER_DATA.agricultural; 
-            //      setWeatherData(data);
-            //   })
-            //   .catch(err => setError('Failed to fetch weather data.'))
-            //   .finally(() => setIsLoading(false));
             
             // Using mocked data for now:
             fetchMockWeatherData(selectedLocation.lat, selectedLocation.lon)
                 .then(data => setWeatherData(data))
                 .catch(() => setError('Failed to fetch weather data.'))
                 .finally(() => setIsLoading(false));
+        } else {
+            setIsLoading(false);
+            setWeatherData(null);
         }
     }, [selectedLocation]);
 
@@ -157,6 +153,8 @@ const WeatherPage = ({ setSidebarOpen, farmLocations }: { setSidebarOpen: (isOpe
         setSelectedLocation(location || null);
     };
     
+    const hasCoords = selectedLocation && typeof selectedLocation.lat === 'string' && selectedLocation.lat.trim() !== '' && typeof selectedLocation.lon === 'string' && selectedLocation.lon.trim() !== '';
+
     if (isLoading) {
         return (
              <main className="flex-1 w-full p-4 md:p-8 bg-slate-100 flex items-center justify-center">
@@ -164,6 +162,63 @@ const WeatherPage = ({ setSidebarOpen, farmLocations }: { setSidebarOpen: (isOpe
                     <p className="text-lg font-semibold text-gray-600">Loading Weather Data...</p>
                  </div>
              </main>
+        );
+    }
+
+    if (!hasCoords) {
+        return (
+            <main className="flex-1 w-full p-4 md:p-6 lg:p-8 bg-slate-100 overflow-y-auto flex flex-col min-h-screen">
+                <header className="mb-8 flex items-center justify-between flex-wrap gap-4">
+                    <div>
+                        <h2 className="text-2xl md:text-3xl font-bold text-gray-700">Farm Weather Center</h2>
+                        <select
+                            value={selectedLocation?.id || ''}
+                            onChange={handleLocationChange}
+                            className="mt-2 text-sm font-semibold text-gray-600 bg-transparent border-0 focus:ring-0 p-0 cursor-pointer"
+                        >
+                            {farmLocations.map(loc => <option key={loc.id} value={loc.id}>{loc.name}</option>)}
+                        </select>
+                    </div>
+                    <button
+                        onClick={() => setSidebarOpen(true)}
+                        className="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-200 md:hidden"
+                        aria-label="Open sidebar"
+                    >
+                        <MenuIcon />
+                    </button>
+                </header>
+
+                <div className="flex-1 flex items-center justify-center py-12 px-4">
+                    <div className="max-w-md w-full bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center flex flex-col items-center">
+                        <div className="w-16 h-16 bg-amber-50 rounded-full flex items-center justify-center mb-6">
+                            <span className="material-icons-outlined text-3xl text-amber-500">location_off</span>
+                        </div>
+                        <h3 className="text-xl font-bold text-gray-800 mb-3">Geocoordinates Missing</h3>
+                        <p className="text-gray-500 text-sm leading-relaxed mb-8">
+                            {selectedLocation ? (
+                                <>
+                                    You have yet to provide a geocoordinate for <strong className="text-gray-700">{selectedLocation.name}</strong>. Complete your farm location details in the Settings page to unlock real-time agricultural forecasts.
+                                </>
+                            ) : (
+                                <>
+                                    You have yet to provide a geocoordinate for your farm locations. Complete your farm location details in the Settings page to unlock real-time agricultural forecasts.
+                                </>
+                            )}
+                        </p>
+                        {setActivePage ? (
+                            <button
+                                onClick={() => setActivePage('Settings')}
+                                className="w-full inline-flex items-center justify-center gap-2 py-3 px-5 bg-[#4C9A2A] hover:bg-[#1E5631] text-white font-semibold rounded-xl shadow-sm transition-all transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
+                            >
+                                <span className="material-icons-outlined text-lg">settings</span>
+                                <span>Go to Settings</span>
+                            </button>
+                        ) : (
+                            <p className="text-xs text-gray-400">Please navigate to the Settings page to add coordinates.</p>
+                        )}
+                    </div>
+                </div>
+            </main>
         );
     }
     

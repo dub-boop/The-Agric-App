@@ -1535,6 +1535,7 @@ const BreedingTab = ({ animals, breedingRecords, setAnimals, setBreedingRecords,
     
                     const newOffspringIds = offspringData.map(offspring => {
                         const offspringBaseName = sire ? `${sire.name || sire.id}'s Offspring` : `Offspring of ${dam.id}`;
+                        const offspringWeight = parseFloat(offspring.weight) || 0;
                         const newOffspring: IndividualAnimal = {
                             id: offspring.id,
                             name: offspring.name || offspringBaseName,
@@ -1542,13 +1543,14 @@ const BreedingTab = ({ animals, breedingRecords, setAnimals, setBreedingRecords,
                             trackingType: 'INDIVIDUAL',
                             farmId: dam.farmId,
                             age: 0,
-                            weight: parseFloat(offspring.weight) || 0,
+                            weight: offspringWeight,
                             sex: offspring.sex,
                             healthStatus: 'Healthy',
                             location: dam.location,
                             sireId: sire?.id,
                             damId: dam.id,
                             source: 'Self-bred',
+                            weightHistory: offspringWeight ? [{ date: new Date(), weight: offspringWeight }] : []
                         };
                         newAnimals.push(newOffspring);
                         return newOffspring.id;
@@ -2009,6 +2011,7 @@ const LivestockPlannerPage = ({
                     }
                 }
                 if (eventData.type === 'Weighing' && affected.weight !== undefined) {
+                    updatedAnimal.averageWeight = affected.weight;
                     // FIX: Ensure immutable update of weightHistory array
                     const newWeightHistory = [...(updatedAnimal.weightHistory || []), { date: eventDate, weight: affected.weight }];
                     updatedAnimal.weightHistory = newWeightHistory;
@@ -2042,6 +2045,11 @@ const LivestockPlannerPage = ({
                 }
 
                 if (a.trackingType === 'INDIVIDUAL') {
+                    const originalWeight = (a as IndividualAnimal).weight;
+                    const weightChanged = data.weight !== undefined && data.weight !== originalWeight;
+                    const newWeightHistory = weightChanged 
+                        ? [...(a.weightHistory || []), { date: new Date(), weight: data.weight! }] 
+                        : (a.weightHistory || []);
                     const updatedAnimal: IndividualAnimal = {
                         ...a,
                         name: data.name,
@@ -2054,6 +2062,7 @@ const LivestockPlannerPage = ({
                         damId: data.damId,
                         age: data.age !== undefined ? data.age : a.age,
                         weight: data.weight !== undefined ? data.weight : a.weight,
+                        weightHistory: newWeightHistory,
                     };
                     return updatedAnimal;
                 } else { // BATCH
@@ -2073,6 +2082,7 @@ const LivestockPlannerPage = ({
         } else {
             // Add logic
             if (data.trackingType === 'INDIVIDUAL') {
+                 const initialWeight = data.weight || 0;
                  const newAnimal: IndividualAnimal = {
                     trackingType: 'INDIVIDUAL',
                     id: data.id!, // ID is validated in the form
@@ -2082,12 +2092,13 @@ const LivestockPlannerPage = ({
                     healthStatus: 'Healthy',
                     name: data.name,
                     age: data.age || 0,
-                    weight: data.weight || 0,
+                    weight: initialWeight,
                     sex: data.sex,
                     sireId: data.sireId,
                     damId: data.damId,
                     variety: data.variety,
                     source: data.source,
+                    weightHistory: initialWeight ? [{ date: new Date(), weight: initialWeight }] : [],
                  };
                 setAnimals(prev => [newAnimal, ...prev]);
                 onAddActivity(`Added a new ${data.species} record: ${data.id}.`, 'pets');

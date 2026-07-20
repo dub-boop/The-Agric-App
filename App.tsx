@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc, getDocFromCache } from 'firebase/firestore';
+import { Lock, Sparkles, Menu } from 'lucide-react';
 import { auth, db } from './firebase';
 import { convertTimestampsToDates, sanitizeForFirestore } from './firestoreService';
 import Sidebar from './components/Sidebar';
@@ -19,6 +20,7 @@ import OnboardingWizard from './components/OnboardingWizard';
 import TalkToFarmrPage from './components/TalkToFarmrPage';
 import GovNgoSupportPage from './components/GovNgoSupportPage';
 import AuthPage from './components/AuthPage';
+import EmailVerification from './components/EmailVerification';
 import PrivacyPolicyPage from './components/PrivacyPolicyPage';
 import TermsOfServicePage from './components/TermsOfServicePage';
 import PaymentPage from './components/PaymentPage';
@@ -35,7 +37,7 @@ const INITIAL_FARM_LOCATIONS: FarmLocation[] = [
 ];
 
 function App() {
-  const [appState, setAppState] = useState<'landing' | 'auth' | 'payment' | 'onboarding' | 'dashboard' | 'privacy' | 'terms' | 'admin-curation'>('landing');
+  const [appState, setAppState] = useState<'landing' | 'auth' | 'payment' | 'verification' | 'onboarding' | 'dashboard' | 'privacy' | 'terms' | 'admin-curation'>('landing');
   const [selectedPlan, setSelectedPlan] = useState<'Starter' | 'Pro' | 'Premium'>('Starter');
   const [isNewUser, setIsNewUser] = useState<boolean>(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -73,7 +75,77 @@ function App() {
 
   // Listen to Auth State
   useEffect(() => {
+    // Check if we have a sandbox user session in localStorage first
+    const savedSandboxUser = localStorage.getItem('sandbox_user');
+    if (savedSandboxUser) {
+      try {
+        const parsed = JSON.parse(savedSandboxUser);
+        setCurrentUserAuth(parsed);
+        loadedUidRef.current = parsed.uid;
+        setLoadingData(true);
+        
+        // Load sandbox data
+        const localDataStr = localStorage.getItem(`sandbox_data_${parsed.uid}`);
+        if (localDataStr) {
+          const data = convertTimestampsToDates(JSON.parse(localDataStr));
+          if (data.selectedCrops) setSelectedCrops(data.selectedCrops);
+          if (data.selectedLivestock) setSelectedLivestock(data.selectedLivestock);
+          if (data.pendingDocuments) setPendingDocuments(data.pendingDocuments);
+          if (data.rejectedDocuments) setRejectedDocuments(data.rejectedDocuments);
+          if (data.businessProfile) setBusinessProfile(data.businessProfile);
+          if (data.userProfile) setUserProfile(data.userProfile);
+          if (data.incomeRecords) setIncomeRecords(data.incomeRecords);
+          if (data.expenditureRecords) setExpenditureRecords(data.expenditureRecords);
+          if (data.farmLocations) setFarmLocations(data.farmLocations);
+          if (data.teamMembers) setTeamMembers(data.teamMembers);
+          if (data.currentUserPlan) setCurrentUserPlan(data.currentUserPlan);
+          if (data.trialExpiresAt !== undefined) setTrialExpiresAt(data.trialExpiresAt);
+          if (data.bonusFarmLocations !== undefined) setBonusFarmLocations(Number(data.bonusFarmLocations));
+          if (data.bonusTeamMembers !== undefined) setBonusTeamMembers(Number(data.bonusTeamMembers));
+          if (data.bypassRestrictions !== undefined) setBypassRestrictions(!!data.bypassRestrictions);
+          if (data.healthEvents) setHealthEvents(data.healthEvents);
+          if (data.animals) setAnimals(data.animals);
+          if (data.cropPlans) setCropPlans(data.cropPlans);
+          if (data.livestockTasks) setLivestockTasks(data.livestockTasks);
+          if (data.croppingActivities) setCroppingActivities(data.croppingActivities);
+          if (data.inputsInventory) setInputsInventory(data.inputsInventory);
+          if (data.toolsEquipment) setToolsEquipment(data.toolsEquipment);
+          if (data.breedingRecords) setBreedingRecords(data.breedingRecords);
+          if (data.activityLog) setActivityLog(data.activityLog);
+          
+          const isVerified = localStorage.getItem(`sandbox_email_verified_${parsed.uid}`) === 'true';
+          if (isVerified) {
+            setAppState('dashboard');
+          } else {
+            setAppState('verification');
+          }
+        } else {
+          // New sandbox user setup
+          setUserProfile(prev => ({ 
+            ...prev, 
+            email: parsed.email || 'sandbox@agricapp.com',
+            name: parsed.displayName || 'Sandbox Farmer'
+          }));
+          setIsNewUser(true);
+          setCurrentUserPlan('Starter');
+          const isVerified = localStorage.getItem(`sandbox_email_verified_${parsed.uid}`) === 'true';
+          if (isVerified) {
+            setAppState('onboarding');
+          } else {
+            setAppState('verification');
+          }
+        }
+        setLoadingData(false);
+      } catch (e) {
+        console.error("Error setting up sandbox session:", e);
+        localStorage.removeItem('sandbox_user');
+      }
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (localStorage.getItem('sandbox_user')) {
+        return;
+      }
       setCurrentUserAuth(user);
       if (user) {
         const impersonatedUid = localStorage.getItem('admin_impersonated_uid');
@@ -147,7 +219,11 @@ function App() {
             
             const loadedPlan = data.currentUserPlan || 'Starter';
             setCurrentUserPlan(loadedPlan);
-            setAppState('dashboard');
+            if (!user.emailVerified) {
+              setAppState('verification');
+            } else {
+              setAppState('dashboard');
+            }
           } else {
             // Document doesn't exist yet, we'll create it upon first state change or onboarding completion
             setTrialExpiresAt('');
@@ -161,7 +237,11 @@ function App() {
             }));
             setIsNewUser(true);
             setCurrentUserPlan('Starter'); // The default tier for every new sign-up is the Starter tier
-            setAppState('onboarding'); // Skip payment block during initialization; go straight to onboarding wizard
+            if (!user.emailVerified) {
+              setAppState('verification');
+            } else {
+              setAppState('onboarding'); // Skip payment block during initialization; go straight to onboarding wizard
+            }
           }
         } catch (err: any) {
           const isOffline = err && (
@@ -255,11 +335,11 @@ function App() {
 
     const impersonatedUid = localStorage.getItem('admin_impersonated_uid');
     const targetUid = impersonatedUid || currentUserAuth.uid;
+    const isSandbox = targetUid && targetUid.startsWith('sandbox_user_');
 
     const timeoutId = setTimeout(async () => {
       try {
-        const userDocRef = doc(db, 'users', targetUid);
-        const payload = sanitizeForFirestore({
+        const payload = {
           email: impersonatedUid ? (localStorage.getItem('admin_impersonated_email') || '') : (currentUserAuth.email || ''),
           selectedCrops,
           selectedLivestock,
@@ -285,9 +365,18 @@ function App() {
           toolsEquipment,
           breedingRecords,
           activityLog,
-          updatedAt: new Date()
-        });
-        await setDoc(userDocRef, payload, { merge: true });
+          updatedAt: new Date().toISOString()
+        };
+
+        if (isSandbox) {
+          localStorage.setItem(`sandbox_data_${targetUid}`, JSON.stringify(payload));
+          console.log("Farm state auto-saved to Sandbox Storage.");
+          return;
+        }
+
+        const userDocRef = doc(db, 'users', targetUid);
+        const firestorePayload = sanitizeForFirestore(payload);
+        await setDoc(userDocRef, firestorePayload, { merge: true });
 
         // Save unique ID mappings for team members in Firestore
         if (teamMembers && Array.isArray(teamMembers)) {
@@ -394,6 +483,7 @@ function App() {
   };
 
   const handleDeleteAccount = () => {
+    localStorage.removeItem('sandbox_user');
     signOut(auth);
     setAppState('landing');
     setActivePage('Farm House');
@@ -438,6 +528,7 @@ function App() {
   };
 
   const handleLogout = () => {
+    localStorage.removeItem('sandbox_user');
     signOut(auth);
     setAppState('landing');
     setActivePage('Farm House');
@@ -597,16 +688,43 @@ function App() {
         return <WeatherPage
                   setSidebarOpen={setSidebarOpen}
                   farmLocations={farmLocations}
+                  setActivePage={setActivePage}
                 />;
       case 'Talk to Farmr':
         return <TalkToFarmrPage
                   setSidebarOpen={setSidebarOpen}
+                  userProfile={userProfile}
+                  businessProfile={businessProfile}
+                  farmLocations={farmLocations}
+                  animals={animals}
+                  cropPlans={cropPlans}
+                  inputsInventory={inputsInventory}
                 />;
       case 'Gov/NGO Support':
+        if (currentUserPlan === 'Starter') {
+          return (
+            <RestrictedFeaturePage
+              title="Gov/NGO Support Hub"
+              featureName="Gov/NGO Support Tool"
+              setSidebarOpen={setSidebarOpen}
+              onUpgrade={() => setIsUpgradeModalOpen(true)}
+            />
+          );
+        }
         return <GovNgoSupportPage
                   setSidebarOpen={setSidebarOpen}
                 />;
       case 'Cooperatives':
+        if (currentUserPlan === 'Starter') {
+          return (
+            <RestrictedFeaturePage
+              title="Farmer Cooperatives"
+              featureName="Cooperatives page"
+              setSidebarOpen={setSidebarOpen}
+              onUpgrade={() => setIsUpgradeModalOpen(true)}
+            />
+          );
+        }
         return <CooperativesPage 
                   setSidebarOpen={setSidebarOpen} 
                />;
@@ -685,11 +803,146 @@ function App() {
   if (appState === 'auth') {
     return (
         <AuthPage
-            onLogin={() => {}}
-            onSignUp={() => {}}
+            onLogin={() => {
+              const savedSandboxUser = localStorage.getItem('sandbox_user');
+              if (savedSandboxUser) {
+                try {
+                  const parsed = JSON.parse(savedSandboxUser);
+                  setCurrentUserAuth(parsed);
+                  loadedUidRef.current = parsed.uid;
+                  
+                  // Load sandbox data
+                  const localDataStr = localStorage.getItem(`sandbox_data_${parsed.uid}`);
+                  if (localDataStr) {
+                    const data = convertTimestampsToDates(JSON.parse(localDataStr));
+                    if (data.selectedCrops) setSelectedCrops(data.selectedCrops);
+                    if (data.selectedLivestock) setSelectedLivestock(data.selectedLivestock);
+                    if (data.pendingDocuments) setPendingDocuments(data.pendingDocuments);
+                    if (data.rejectedDocuments) setRejectedDocuments(data.rejectedDocuments);
+                    if (data.businessProfile) setBusinessProfile(data.businessProfile);
+                    if (data.userProfile) setUserProfile(data.userProfile);
+                    if (data.incomeRecords) setIncomeRecords(data.incomeRecords);
+                    if (data.expenditureRecords) setExpenditureRecords(data.expenditureRecords);
+                    if (data.farmLocations) setFarmLocations(data.farmLocations);
+                    if (data.teamMembers) setTeamMembers(data.teamMembers);
+                    if (data.currentUserPlan) setCurrentUserPlan(data.currentUserPlan);
+                    if (data.trialExpiresAt !== undefined) setTrialExpiresAt(data.trialExpiresAt);
+                    if (data.bonusFarmLocations !== undefined) setBonusFarmLocations(Number(data.bonusFarmLocations));
+                    if (data.bonusTeamMembers !== undefined) setBonusTeamMembers(Number(data.bonusTeamMembers));
+                    if (data.bypassRestrictions !== undefined) setBypassRestrictions(!!data.bypassRestrictions);
+                    if (data.healthEvents) setHealthEvents(data.healthEvents);
+                    if (data.animals) setAnimals(data.animals);
+                    if (data.cropPlans) setCropPlans(data.cropPlans);
+                    if (data.livestockTasks) setLivestockTasks(data.livestockTasks);
+                    if (data.croppingActivities) setCroppingActivities(data.croppingActivities);
+                    if (data.inputsInventory) setInputsInventory(data.inputsInventory);
+                    if (data.toolsEquipment) setToolsEquipment(data.toolsEquipment);
+                    if (data.breedingRecords) setBreedingRecords(data.breedingRecords);
+                    if (data.activityLog) setActivityLog(data.activityLog);
+                    
+                    const isVerified = localStorage.getItem(`sandbox_email_verified_${parsed.uid}`) === 'true';
+                    if (isVerified) {
+                      setAppState('dashboard');
+                    } else {
+                      setAppState('verification');
+                    }
+                  } else {
+                    setUserProfile(prev => ({ 
+                      ...prev, 
+                      email: parsed.email || 'sandbox@agricapp.com',
+                      name: parsed.displayName || 'Sandbox Farmer'
+                    }));
+                    setIsNewUser(true);
+                    setCurrentUserPlan('Starter');
+                    const isVerified = localStorage.getItem(`sandbox_email_verified_${parsed.uid}`) === 'true';
+                    if (isVerified) {
+                      setAppState('onboarding');
+                    } else {
+                      setAppState('verification');
+                    }
+                  }
+                } catch (e) {
+                  console.error(e);
+                  setAppState('dashboard');
+                }
+              } else {
+                const isVerified = auth.currentUser?.emailVerified;
+                if (isVerified) {
+                  setAppState('dashboard');
+                } else {
+                  setAppState('verification');
+                }
+              }
+            }}
+            onSignUp={() => {
+              const savedSandboxUser = localStorage.getItem('sandbox_user');
+              if (savedSandboxUser) {
+                try {
+                  const parsed = JSON.parse(savedSandboxUser);
+                  setCurrentUserAuth(parsed);
+                  loadedUidRef.current = parsed.uid;
+                  
+                  setUserProfile(prev => ({ 
+                    ...prev, 
+                    email: parsed.email || 'sandbox@agricapp.com',
+                    name: parsed.displayName || 'Sandbox Farmer'
+                  }));
+                  setIsNewUser(true);
+                  setCurrentUserPlan('Starter');
+                  const isVerified = localStorage.getItem(`sandbox_email_verified_${parsed.uid}`) === 'true';
+                  if (isVerified) {
+                    setAppState('onboarding');
+                  } else {
+                    setAppState('verification');
+                  }
+                } catch (e) {
+                  console.error(e);
+                  setAppState('onboarding');
+                }
+              } else {
+                const isVerified = auth.currentUser?.emailVerified;
+                if (isVerified) {
+                  setAppState('onboarding');
+                } else {
+                  setAppState('verification');
+                }
+              }
+            }}
             onAcceptInvitation={handleAcceptInvitation}
             onGoToLanding={() => setAppState('landing')}
         />
+    );
+  }
+
+  if (appState === 'verification') {
+    return (
+      <EmailVerification
+        currentUserAuth={currentUserAuth}
+        onVerified={async () => {
+          if (currentUserAuth?.uid && currentUserAuth.uid.startsWith('sandbox_user_')) {
+            const localDataStr = localStorage.getItem(`sandbox_data_${currentUserAuth.uid}`);
+            if (localDataStr) {
+              setAppState('dashboard');
+            } else {
+              setAppState('onboarding');
+            }
+          } else {
+            try {
+              const userDocRef = doc(db, 'users', currentUserAuth.uid);
+              const docSnap = await getDoc(userDocRef);
+              if (docSnap.exists()) {
+                setAppState('dashboard');
+              } else {
+                setAppState('onboarding');
+              }
+            } catch (err) {
+              console.error("Error loading user state on verification completion:", err);
+              setAppState('onboarding');
+            }
+          }
+        }}
+        onLogout={handleLogout}
+      />
     );
   }
 
@@ -776,5 +1029,67 @@ function App() {
     </div>
   );
 }
+
+
+const RestrictedFeaturePage = ({
+  title,
+  featureName,
+  setSidebarOpen,
+  onUpgrade,
+}: {
+  title: string;
+  featureName: string;
+  setSidebarOpen: (isOpen: boolean) => void;
+  onUpgrade: () => void;
+}) => {
+  return (
+    <main className="flex-1 w-full p-4 md:p-6 lg:p-8 bg-slate-100 overflow-y-auto flex flex-col">
+      <header className="mb-8 flex items-center justify-between flex-shrink-0">
+        <div>
+          <h2 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">{title}</h2>
+          <p className="text-xs text-slate-500 mt-1">Discover premium operations tools available on Pro and Premium tiers.</p>
+        </div>
+        <button
+          onClick={() => setSidebarOpen(true)}
+          className="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-200 md:hidden border-0 bg-transparent cursor-pointer"
+          aria-label="Open sidebar"
+        >
+          <Menu className="h-6 w-6" />
+        </button>
+      </header>
+
+      <div className="flex-grow flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white border border-slate-200 rounded-3xl p-8 shadow-sm text-center relative overflow-hidden">
+          {/* Top colored accent line */}
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600"></div>
+          
+          <div className="mx-auto w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mb-6">
+            <Lock className="h-8 w-8 text-emerald-600" />
+          </div>
+
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200 uppercase tracking-wide mb-4">
+            <Sparkles className="h-3 w-3" /> Pro & Premium Feature
+          </span>
+
+          <h3 className="text-2xl font-extrabold text-slate-900 tracking-tight mb-3">
+            Upgrade Your Plan
+          </h3>
+          
+          <p className="text-slate-500 text-sm leading-relaxed mb-8">
+            The <strong className="text-slate-800">{featureName}</strong> is a high-yield tool designed for scaling agricultural operations. Please upgrade your subscription plan to enjoy this feature, along with premium toolsets and priority expert facilitation.
+          </p>
+
+          <button
+            onClick={onUpgrade}
+            className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-sm py-4 px-6 rounded-2xl shadow-md transition-all transform hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-2 cursor-pointer border-0"
+          >
+            <Sparkles className="h-4 w-4" />
+            Upgrade to Pro / Premium Now
+          </button>
+        </div>
+      </div>
+    </main>
+  );
+};
 
 export default App;

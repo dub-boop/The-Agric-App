@@ -5,7 +5,8 @@ import {
     createUserWithEmailAndPassword, 
     GoogleAuthProvider, 
     signInWithPopup, 
-    linkWithCredential 
+    linkWithCredential,
+    sendEmailVerification
 } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
@@ -104,7 +105,12 @@ const AuthPage = ({ onLogin, onSignUp, onAcceptInvitation, onGoToLanding }: { on
         setError('');
         if (verificationCode === '123456') {
             try {
-                await createUserWithEmailAndPassword(auth, email, password);
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                try {
+                    await sendEmailVerification(userCredential.user);
+                } catch (sendErr) {
+                    console.error("Error sending initial verification email:", sendErr);
+                }
                 onSignUp(); // Success, proceed to onboarding
             } catch (err: any) {
                 console.error(err);
@@ -130,7 +136,12 @@ const AuthPage = ({ onLogin, onSignUp, onAcceptInvitation, onGoToLanding }: { on
         }
         if (invitedEmail) {
             try {
-                await createUserWithEmailAndPassword(auth, invitedEmail, password);
+                const userCredential = await createUserWithEmailAndPassword(auth, invitedEmail, password);
+                try {
+                    await sendEmailVerification(userCredential.user);
+                } catch (sendErr) {
+                    console.error("Error sending initial verification email:", sendErr);
+                }
                 onAcceptInvitation(invitedEmail);
                 onLogin();
             } catch (err: any) {
@@ -379,7 +390,8 @@ const AuthPage = ({ onLogin, onSignUp, onAcceptInvitation, onGoToLanding }: { on
                             {renderErrorMsg(error)}
                             <button type="submit" className={buttonClasses}>Sign Up</button>
                             {renderGoogleButton()}
-                             <p className="text-center text-sm text-gray-500">
+
+                             <p className="text-center text-sm text-gray-500 mt-4">
                                 Already have an account?{' '}
                                 <button type="button" onClick={() => { setAuthMode('login'); setError(''); }} className="font-medium text-green-600 hover:underline">Log in</button>
                             </p>
@@ -398,7 +410,8 @@ const AuthPage = ({ onLogin, onSignUp, onAcceptInvitation, onGoToLanding }: { on
                             {renderErrorMsg(error)}
                             <button type="submit" className={buttonClasses}>Log In</button>
                             {renderGoogleButton()}
-                             <p className="text-center text-sm text-gray-500">
+
+                             <p className="text-center text-sm text-gray-500 mt-4">
                                 Don't have an account?{' '}
                                 <button type="button" onClick={() => { setAuthMode('signup'); setError(''); }} className="font-medium text-green-600 hover:underline">Sign up</button>
                             </p>

@@ -62,6 +62,8 @@ const ReceiptGeneratorPage = ({ setSidebarOpen, setPendingDocuments, rejectedDoc
 
     // State for rejected documents section
     const [rejectedTab, setRejectedTab] = useState<'Receipts' | 'Invoices'>('Receipts');
+    const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+    const [showSuccessAlert, setShowSuccessAlert] = useState(false);
     
     useEffect(() => {
         if(selectedLocationId !== 'all') {
@@ -184,11 +186,26 @@ const ReceiptGeneratorPage = ({ setSidebarOpen, setPendingDocuments, rejectedDoc
         }
 
         resetForm();
+        setShowSuccessAlert(true);
+
+        // Smooth scroll to top of page so the alert banner is visible
+        const mainEl = document.querySelector('main');
+        if (mainEl) {
+            mainEl.scrollTo({ top: 0, behavior: 'smooth' });
+        } else {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
     };
     
     // --- Rejected Documents Handlers ---
     const handleEditRejected = (doc: RejectedFinancialDocument) => {
-        window.scrollTo(0, 0); // Scroll to top to see the form
+        // Smooth scroll to the top of the main container which has the scrollbar
+        const mainEl = document.querySelector('main');
+        if (mainEl) {
+            mainEl.scrollTo({ top: 0, behavior: 'smooth' });
+        } else {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
         setDocId(doc.id);
         setDocumentNumber(doc.id); // Set the number to the existing one
         setDocumentType(doc.documentType);
@@ -208,12 +225,6 @@ const ReceiptGeneratorPage = ({ setSidebarOpen, setPendingDocuments, rejectedDoc
         setDiscountPercent(String(doc.discountPercent));
         setTaxPercent(String(doc.taxPercent));
         setAmountPaid(String(doc.amountPaid));
-    };
-
-    const handleDeleteRejected = (id: string) => {
-        if (window.confirm("Are you sure you want to permanently delete this rejected document?")) {
-            setRejectedDocuments(prev => prev.filter(d => d.id !== id));
-        }
     };
 
     const filteredRejected = rejectedDocuments.filter(d => {
@@ -246,6 +257,40 @@ const ReceiptGeneratorPage = ({ setSidebarOpen, setPendingDocuments, rejectedDoc
                     </button>
                 </div>
             </header>
+
+            {showSuccessAlert && (
+                <div className="max-w-4xl mx-auto mb-6 bg-green-50 border-l-4 border-green-500 p-4 rounded-r-xl shadow-sm flex items-start justify-between animate-fadeIn" id="receipt-submit-success-banner">
+                    <div className="flex items-start space-x-3">
+                        <span className="material-icons-outlined text-green-600 text-xl mt-0.5">check_circle</span>
+                        <div>
+                            <p className="text-sm font-bold text-green-800">Submission Successful</p>
+                            <p className="text-xs text-green-700 mt-0.5">
+                                The receipt has been sent. Please confirm the receipt from the store management section or notify your store manager to confirm receipt.
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setShowSuccessAlert(false)}
+                        className="text-green-600 hover:text-green-800 focus:outline-none transition-colors p-1 rounded-full hover:bg-green-100/50 cursor-pointer"
+                        aria-label="Dismiss alert"
+                    >
+                        <CloseIcon />
+                    </button>
+                </div>
+            )}
+
+            {rejectedDocuments.length > 0 && (
+                <div className="max-w-4xl mx-auto mb-6 bg-amber-50 border-l-4 border-amber-500 p-4 rounded-r-xl shadow-sm flex items-start space-x-3 animate-fadeIn" id="rejected-docs-warning-banner">
+                    <span className="material-icons-outlined text-amber-600 text-xl mt-0.5">warning</span>
+                    <div>
+                        <p className="text-sm font-bold text-amber-800">Action Required: Rejected Documents Outstanding</p>
+                        <p className="text-xs text-amber-700 mt-0.5">
+                            Please resolve the rejected documents in the section below before issuing new receipts or invoices.
+                        </p>
+                    </div>
+                </div>
+            )}
 
             <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-md p-6 md:p-8">
                 <form onSubmit={handleSubmit} className="space-y-8">
@@ -376,8 +421,48 @@ const ReceiptGeneratorPage = ({ setSidebarOpen, setPendingDocuments, rejectedDoc
                                     <p className="text-sm text-red-700 font-semibold mt-1">Reason: <span className="font-normal">{doc.reasonForRejection}</span></p>
                                 </div>
                                 <div className="flex items-center space-x-2 flex-shrink-0">
-                                    <button onClick={() => handleEditRejected(doc)} className="text-blue-600 p-1 hover:bg-blue-100 rounded-full" title="Edit and Resubmit"><EditIcon /></button>
-                                    <button onClick={() => handleDeleteRejected(doc.id)} className="text-red-600 p-1 hover:bg-red-100 rounded-full" title="Delete Permanently"><TrashIcon /></button>
+                                    {confirmDeleteId === doc.id ? (
+                                        <div className="flex items-center space-x-2 bg-red-100 px-2.5 py-1 rounded-lg border border-red-200 animate-fadeIn">
+                                            <span className="text-xs text-red-700 font-semibold">Delete?</span>
+                                            <button 
+                                                type="button"
+                                                onClick={() => {
+                                                    setRejectedDocuments(prev => prev.filter(d => d.id !== doc.id));
+                                                    setConfirmDeleteId(null);
+                                                    onAddActivity(`Deleted a rejected ${doc.documentType}: ${doc.id}.`, 'delete_outline');
+                                                }} 
+                                                className="text-xs bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded font-bold transition-colors cursor-pointer border-0"
+                                            >
+                                                Yes
+                                            </button>
+                                            <button 
+                                                type="button"
+                                                onClick={() => setConfirmDeleteId(null)} 
+                                                className="text-xs bg-gray-200 hover:bg-gray-300 text-gray-700 px-2 py-1 rounded font-bold transition-colors cursor-pointer border-0"
+                                            >
+                                                No
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <button 
+                                                type="button" 
+                                                onClick={() => handleEditRejected(doc)} 
+                                                className="text-blue-600 p-1 hover:bg-blue-100 rounded-full transition-colors" 
+                                                title="Edit and Resubmit"
+                                            >
+                                                <EditIcon />
+                                            </button>
+                                            <button 
+                                                type="button" 
+                                                onClick={() => setConfirmDeleteId(doc.id)} 
+                                                className="text-red-600 p-1 hover:bg-red-100 rounded-full transition-colors" 
+                                                title="Delete Permanently"
+                                            >
+                                                <TrashIcon />
+                                            </button>
+                                        </>
+                                    )}
                                 </div>
                             </div>
                         </div>
